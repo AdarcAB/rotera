@@ -74,6 +74,15 @@ export default async function LivePage({
   const playerMap = Object.fromEntries(
     mps.map((mp) => [mp.id, nameOf(mp)])
   );
+  const playerMeta = Object.fromEntries(
+    mps.map((mp) => [
+      mp.id,
+      {
+        playablePositionIds: mp.playablePositionIds ?? [],
+        preferredPositionIds: mp.preferredPositionIds ?? [],
+      },
+    ])
+  );
 
   return (
     <LiveMatch
@@ -83,10 +92,16 @@ export default async function LivePage({
       numPeriods={formation.numPeriods}
       positionMap={positionMap}
       playerMap={playerMap}
+      playerMeta={playerMeta}
       initialLiveState={(match.liveStateJson as LiveState | null) ?? null}
     />
   );
 }
+
+export type PlayerMeta = {
+  playablePositionIds: number[];
+  preferredPositionIds: number[];
+};
 
 export type AdHocSub = {
   periodIndex: number;

@@ -5,7 +5,7 @@ import type { Schedule } from "@/lib/schedule/types";
 import { Button } from "@/components/ui/Button";
 import { formatTime } from "@/lib/utils";
 import { persistLiveState, finishMatch } from "./actions";
-import type { AdHocSub, LiveState } from "./page";
+import type { AdHocSub, LiveState, PlayerMeta } from "./page";
 
 const PRE_SUB_WARN_SECONDS = 10;
 
@@ -95,6 +95,7 @@ export function LiveMatch({
   numPeriods,
   positionMap,
   playerMap,
+  playerMeta,
   initialLiveState,
 }: {
   matchId: number;
@@ -103,6 +104,7 @@ export function LiveMatch({
   numPeriods: number;
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
+  playerMeta: Record<number, PlayerMeta>;
   initialLiveState: LiveState | null;
 }) {
   const [live, setLive] = useState<LiveState>(initialLiveState ?? defaultLiveState());
@@ -437,6 +439,7 @@ export function LiveMatch({
           outPlayerId={currentLineup.get(adHocOpenFor) ?? 0}
           positionMap={positionMap}
           playerMap={playerMap}
+          playerMeta={playerMeta}
           benchIds={benchIds}
           schedule={schedule}
           onClose={() => setAdHocOpenFor(null)}
@@ -874,6 +877,7 @@ function AdHocBenchModal({
   outPlayerId,
   positionMap,
   playerMap,
+  playerMeta,
   benchIds,
   schedule,
   onClose,
@@ -883,39 +887,31 @@ function AdHocBenchModal({
   outPlayerId: number;
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
+  playerMeta: Record<number, PlayerMeta>;
   benchIds: number[];
   schedule: Schedule;
   onClose: () => void;
   onPick: (inPlayerId: number) => void;
 }) {
-  // We need to know per bench player: can they play this pos?; prefers?;
-  // scheduled minutes. These aren't directly on schedule; infer from the
-  // generated schedule's per-player minutes (as a proxy) and from whether
-  // they appear with this positionId anywhere.
-  const prefersPos = (pid: number): boolean => {
-    for (const per of schedule.periods) {
-      for (const slot of per.startLineup) {
-        if (slot.playerId === pid && slot.positionId === positionId) return true;
-      }
-      for (const sp of per.subPoints) {
-        for (const c of sp.changes) {
-          if (c.inPlayerId === pid && c.positionId === positionId) return true;
-        }
-      }
-    }
-    return false;
-  };
+  const canPlay = (pid: number): boolean =>
+    playerMeta[pid]?.playablePositionIds.includes(positionId) ?? false;
+  const prefers = (pid: number): boolean =>
+    playerMeta[pid]?.preferredPositionIds.includes(positionId) ?? false;
+  const scheduledMins = (pid: number): number =>
+    schedule.perPlayerMinutes?.[pid] ?? 0;
 
-  const scheduledMins = (pid: number): number => schedule.perPlayerMinutes?.[pid] ?? 0;
-
-  const sorted = benchIds
-    .slice()
-    .sort((a, b) => {
-      const pa = prefersPos(a) ? 1 : 0;
-      const pb = prefersPos(b) ? 1 : 0;
-      if (pa !== pb) return pb - pa;
-      return scheduledMins(a) - scheduledMins(b);
-    });
+  const sorted = benchIds.slice().sort((a, b) => {
+    // 1. Prefers → top
+    const pa = prefers(a) ? 1 : 0;
+    const pb = prefers(b) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+    // 2. Playable → before unplayable
+    const ca = canPlay(a) ? 1 : 0;
+    const cb = canPlay(b) ? 1 : 0;
+    if (ca !== cb) return cb - ca;
+    // 3. Least scheduled minutes → first
+    return scheduledMins(a) - scheduledMins(b);
+  });
 
   const pos = positionMap[positionId];
 
@@ -953,8 +949,29 @@ function AdHocBenchModal({
           ) : (
             <ul>
               {sorted.map((id) => {
-                const prefers = prefersPos(id);
+                const isPreferred = prefers(id);
+                const isPlayable = canPlay(id);
                 const mins = scheduledMins(id);
+                let label: React.ReactNode;
+                if (isPreferred) {
+                  label = (
+                    <span className="text-xs text-emerald-700 ml-1">
+                      · önskar denna
+                    </span>
+                  );
+                } else if (isPlayable) {
+                  label = (
+                    <span className="text-xs text-neutral-600 ml-1">
+                      · spelbar
+                    </span>
+                  );
+                } else {
+                  label = (
+                    <span className="text-xs text-amber-700 ml-1">
+                      · ej markerad som spelbar
+                    </span>
+                  );
+                }
                 return (
                   <li key={id}>
                     <button
@@ -964,16 +981,7 @@ function AdHocBenchModal({
                     >
                       <div>
                         <div className="font-medium">
-                          {playerMap[id] ?? "?"}{" "}
-                          {prefers ? (
-                            <span className="text-xs text-emerald-700 ml-1">
-                              · kan spela här
-                            </span>
-                          ) : (
-                            <span className="text-xs text-amber-600 ml-1">
-                              · ovanlig pos
-                            </span>
-                          )}
+                          {playerMap[id] ?? "?"} {label}
                         </div>
                         <div className="text-xs text-neutral-500">
                           {mins} min i schema
