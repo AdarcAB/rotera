@@ -177,12 +177,41 @@ export function LiveMatch({
   const secondsUntilNextSub =
     nextSubAtSec !== null ? nextSubAtSec - elapsedSec : null;
 
-  const showSubModal =
-    live.status === "running" &&
-    nextSub !== null &&
-    secondsUntilNextSub !== null &&
-    secondsUntilNextSub <= 0 &&
-    nextSub.subPoint.changes.length > 0;
+  type EffectiveChange = {
+    positionId: number;
+    outPlayerId: number;
+    inPlayerId: number;
+    rewired: boolean;
+  };
+
+  const currentLineup = useMemo<LineupState>(() => {
+    if (live.status === "pre_period" || live.status === "finished") {
+      const map: LineupState = new Map();
+      const period = schedule.periods[live.currentPeriodIndex];
+      if (!period) return map;
+      for (const slot of period.startLineup) map.set(slot.positionId, slot.playerId);
+      return map;
+    }
+    return buildCurrentLineup(schedule, live, elapsedSec);
+  }, [live, schedule, elapsedSec]);
+
+  const effectiveNextChanges = useMemo<EffectiveChange[]>(() => {
+    if (!nextSub) return [];
+    const onField = new Set(currentLineup.values());
+    const out: EffectiveChange[] = [];
+    for (const c of nextSub.subPoint.changes) {
+      if (onField.has(c.inPlayerId)) continue;
+      const actualOut = currentLineup.get(c.positionId) ?? c.outPlayerId;
+      if (actualOut === c.inPlayerId) continue;
+      out.push({
+        positionId: c.positionId,
+        outPlayerId: actualOut,
+        inPlayerId: c.inPlayerId,
+        rewired: actualOut !== c.outPlayerId,
+      });
+    }
+    return out;
+  }, [nextSub, currentLineup]);
 
   const showPreSubWarning =
     live.status === "running" &&
@@ -198,14 +227,43 @@ export function LiveMatch({
       secondsUntilNextSub !== null &&
       secondsUntilNextSub <= 0
     ) {
-      const key = nextSub.key;
-      if (!beepedRef.current.has(key) && nextSub.subPoint.changes.length > 0) {
-        beepedRef.current.add(key);
+      if (effectiveNextChanges.length === 0) {
+        // Scheduled sub has nothing to do (all changes redundant after ad hoc
+        // subs). Auto-complete so we move on.
+        const key = {
+          periodIndex: live.currentPeriodIndex,
+          subPointIndex: nextSub.index,
+        };
+        if (
+          !live.completedSubPoints.some(
+            (c) =>
+              c.periodIndex === key.periodIndex &&
+              c.subPointIndex === key.subPointIndex
+          )
+        ) {
+          const nextState: LiveState = {
+            ...live,
+            completedSubPoints: [...live.completedSubPoints, key],
+          };
+          setLive(nextState);
+          saveLive(nextState);
+        }
+        return;
+      }
+      const beepKey = nextSub.key;
+      if (!beepedRef.current.has(beepKey)) {
+        beepedRef.current.add(beepKey);
         playBeep(880, 220, 0.4);
         setTimeout(() => playBeep(660, 220, 0.4), 260);
       }
     }
-  }, [live.status, nextSub, secondsUntilNextSub]);
+  }, [
+    live,
+    nextSub,
+    secondsUntilNextSub,
+    effectiveNextChanges.length,
+    saveLive,
+  ]);
 
   useEffect(() => {
     if (
@@ -289,20 +347,16 @@ export function LiveMatch({
     saveLive(next);
   };
 
-  const currentLineup = useMemo<LineupState>(() => {
-    if (live.status === "pre_period" || live.status === "finished") {
-      const map: LineupState = new Map();
-      const period = schedule.periods[live.currentPeriodIndex];
-      if (!period) return map;
-      for (const slot of period.startLineup) map.set(slot.positionId, slot.playerId);
-      return map;
-    }
-    return buildCurrentLineup(schedule, live, elapsedSec);
-  }, [live, schedule, elapsedSec]);
-
   const allPlayerIds = Object.keys(playerMap).map((k) => Number(k));
   const onFieldIds = new Set(currentLineup.values());
   const benchIds = allPlayerIds.filter((id) => !onFieldIds.has(id));
+
+  const showSubModal =
+    live.status === "running" &&
+    nextSub !== null &&
+    secondsUntilNextSub !== null &&
+    secondsUntilNextSub <= 0 &&
+    effectiveNextChanges.length > 0;
 
   const performAdHocSub = (positionId: number, inPlayerId: number) => {
     const outPlayerId = currentLineup.get(positionId);
@@ -370,7 +424,7 @@ export function LiveMatch({
 
       {showSubModal && nextSub ? (
         <SubModal
-          changes={nextSub.subPoint.changes}
+          changes={effectiveNextChanges}
           positionMap={positionMap}
           playerMap={playerMap}
           onComplete={handleCompleteSub}
@@ -574,6 +628,7 @@ function RunningView({
         schedule={schedule}
         positionMap={positionMap}
         playerMap={playerMap}
+        currentLineup={currentLineup}
       />
 
       <div className="rounded-lg border border-border bg-white p-3 mb-4">
@@ -617,11 +672,13 @@ function UpcomingSubsPreview({
   schedule,
   positionMap,
   playerMap,
+  currentLineup,
 }: {
   live: LiveState;
   schedule: Schedule;
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
+  currentLineup: LineupState;
 }) {
   const [expanded, setExpanded] = useState(false);
   const period = schedule.periods[live.currentPeriodIndex];
@@ -647,6 +704,20 @@ function UpcomingSubsPreview({
   }
 
   const [next, ...later] = remaining;
+  const onFieldNow = new Set(currentLineup.values());
+  const effectiveNext = next.sp.changes
+    .filter((c) => !onFieldNow.has(c.inPlayerId))
+    .map((c) => {
+      const actualOut = currentLineup.get(c.positionId) ?? c.outPlayerId;
+      return {
+        ...c,
+        outPlayerId: actualOut,
+        rewired: actualOut !== c.outPlayerId,
+        skippedIdentity: actualOut === c.inPlayerId,
+      };
+    })
+    .filter((c) => !c.skippedIdentity);
+  const skippedCount = next.sp.changes.length - effectiveNext.length;
 
   return (
     <div className="rounded-lg border border-border bg-white p-3 mb-3">
@@ -655,15 +726,17 @@ function UpcomingSubsPreview({
       </div>
       <div className="mb-1 font-semibold text-base">
         {next.sp.minuteInPeriod}&apos;
-        {next.sp.changes.length > 1
-          ? ` · ${next.sp.changes.length} spelarbyten`
+        {effectiveNext.length > 1
+          ? ` · ${effectiveNext.length} spelarbyten`
           : ""}
       </div>
       <ul className="space-y-0.5 text-sm mb-2">
-        {next.sp.changes.length === 0 ? (
-          <li className="text-neutral-500">(inget byte)</li>
+        {effectiveNext.length === 0 ? (
+          <li className="text-neutral-500">
+            (inget att byta — tidigare ad hoc-byte har ersatt detta)
+          </li>
         ) : (
-          next.sp.changes.map((c, i) => (
+          effectiveNext.map((c, i) => (
             <li key={i}>
               <span className="inline-block font-semibold bg-neutral-100 px-1.5 py-0.5 rounded mr-2">
                 {positionMap[c.positionId]?.abbreviation ?? "?"}
@@ -673,9 +746,19 @@ function UpcomingSubsPreview({
               <span className="text-neutral-400">→</span>{" "}
               <span className="text-emerald-700">IN:</span>{" "}
               {playerMap[c.inPlayerId] ?? "?"}
+              {c.rewired ? (
+                <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700">
+                  justerat
+                </span>
+              ) : null}
             </li>
           ))
         )}
+        {skippedCount > 0 ? (
+          <li className="text-xs text-neutral-500">
+            ({skippedCount} planerad{skippedCount > 1 ? "e" : ""} byte hoppas över — spelare redan på plan)
+          </li>
+        ) : null}
       </ul>
 
       {later.length > 0 ? (
@@ -720,16 +803,27 @@ function SubModal({
   playerMap,
   onComplete,
 }: {
-  changes: { positionId: number; outPlayerId: number; inPlayerId: number }[];
+  changes: {
+    positionId: number;
+    outPlayerId: number;
+    inPlayerId: number;
+    rewired?: boolean;
+  }[];
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
   onComplete: () => void;
 }) {
+  const anyRewired = changes.some((c) => c.rewired);
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex flex-col text-white p-6 overflow-auto">
       <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full">
         <div className="text-center mb-6">
           <div className="text-3xl font-bold">BYTE!</div>
+          {anyRewired ? (
+            <div className="text-xs text-amber-300 mt-1">
+              Justerat efter tidigare ad hoc-byte
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-4 mb-8">
@@ -743,6 +837,11 @@ function SubModal({
                 <span className="text-neutral-400 font-normal text-lg">
                   {positionMap[c.positionId]?.name}
                 </span>
+                {c.rewired ? (
+                  <span className="ml-2 text-xs align-middle text-amber-400 font-normal">
+                    · justerat
+                  </span>
+                ) : null}
               </div>
               <div className="flex items-center justify-between text-xl md:text-2xl font-semibold">
                 <div>
