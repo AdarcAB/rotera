@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireUserId } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { players, teams } from "@/lib/db/schema";
+import { capitalizeName } from "@/lib/utils";
 
 const TeamInput = z.object({
   name: z.string().trim().min(1, "Namn krävs").max(80),
@@ -59,7 +60,7 @@ export async function createPlayer(
 ): Promise<{ id: number; name: string }> {
   const userId = await requireUserId();
   await assertTeamOwned(teamId, userId);
-  const parsed = PlayerName.parse(name);
+  const parsed = capitalizeName(PlayerName.parse(name));
   const [inserted] = await db
     .insert(players)
     .values({ teamId, name: parsed })
@@ -75,7 +76,7 @@ export async function renamePlayer(
 ): Promise<void> {
   const userId = await requireUserId();
   await assertTeamOwned(teamId, userId);
-  const parsed = PlayerName.parse(name);
+  const parsed = capitalizeName(PlayerName.parse(name));
   await db
     .update(players)
     .set({ name: parsed })

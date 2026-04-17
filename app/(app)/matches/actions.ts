@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/schema";
 import { generateSchedule } from "@/lib/schedule/generate";
 import type { ScheduleInput } from "@/lib/schedule/types";
+import { capitalizeName } from "@/lib/utils";
 
 const MatchInput = z.object({
   opponent: z.string().trim().min(1).max(80),
@@ -177,7 +178,7 @@ export async function addGuestAction(
 ): Promise<MatchPlayerDTO | null> {
   const userId = await requireUserId();
   const match = await assertOwned(matchId, userId);
-  const cleaned = name.trim().slice(0, 60);
+  const cleaned = capitalizeName(name.trim().slice(0, 60));
   if (!cleaned) return null;
   const posIds = await allPositionIds(match.formationId);
   const [inserted] = await db

@@ -6,6 +6,7 @@ import {
   deletePlayer,
   renamePlayer,
 } from "@/app/(app)/teams/actions";
+import { capitalizeName } from "@/lib/utils";
 
 type Row = {
   id: number;
@@ -25,7 +26,7 @@ export function PlayersTable({
   const draftRef = useRef<HTMLInputElement>(null);
 
   const addFromDraft = () => {
-    const name = draft.trim();
+    const name = capitalizeName(draft);
     if (!name) return;
     setDraft("");
     startTransition(async () => {
@@ -40,7 +41,7 @@ export function PlayersTable({
   };
 
   const rename = (id: number, newName: string) => {
-    const name = newName.trim();
+    const name = capitalizeName(newName);
     const row = rows.find((r) => r.id === id);
     if (!row) return;
     if (!name) {
@@ -134,11 +135,16 @@ function InlineName({
   onCommit: (value: string) => void;
 }) {
   const [value, setValue] = useState(initial);
+  const commit = () => {
+    const cleaned = capitalizeName(value);
+    if (cleaned) setValue(cleaned);
+    onCommit(cleaned || initial);
+  };
   return (
     <input
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      onBlur={() => onCommit(value)}
+      onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();

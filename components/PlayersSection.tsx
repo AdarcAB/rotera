@@ -7,6 +7,7 @@ import {
   togglePlayerCalledAction,
   updateMatchPlayerPositionsAction,
 } from "@/app/(app)/matches/actions";
+import { capitalizeName } from "@/lib/utils";
 
 export type Position = {
   id: number;
@@ -96,7 +97,7 @@ export function PlayersSection({
   };
 
   const addGuest = () => {
-    const name = guestDraft.trim();
+    const name = capitalizeName(guestDraft);
     if (!name) return;
     setGuestDraft("");
     startTransition(async () => {
