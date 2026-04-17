@@ -13,24 +13,24 @@ import {
 } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Field, Input, Label } from "@/components/ui/Input";
 import {
-  addGuest,
+  computeSchedulePrereqs,
   deleteMatch,
   generateScheduleAction,
-  removeMatchPlayer,
-  saveCalledPlayers,
-  savePositionSelections,
   startLive,
 } from "../actions";
 import type { Schedule } from "@/lib/schedule/types";
+import { PlayersSection } from "@/components/PlayersSection";
 
 export default async function MatchPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ genError?: string; genOk?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const matchId = Number(id);
   const userId = await requireUserId();
 
@@ -43,15 +43,32 @@ export default async function MatchPage({
 
   const [team, formation, teamPlayers, posList, mps] = await Promise.all([
     db.select().from(teams).where(eq(teams.id, match.teamId)).limit(1).then((r) => r[0]),
-    db.select().from(formations).where(eq(formations.id, match.formationId)).limit(1).then((r) => r[0]),
-    db.select().from(players).where(eq(players.teamId, match.teamId)).orderBy(players.name),
-    db.select().from(positions).where(eq(positions.formationId, match.formationId)).orderBy(asc(positions.sortOrder)),
-    db.select().from(matchPlayers).where(eq(matchPlayers.matchId, matchId)),
+    db
+      .select()
+      .from(formations)
+      .where(eq(formations.id, match.formationId))
+      .limit(1)
+      .then((r) => r[0]),
+    db
+      .select({ id: players.id, name: players.name })
+      .from(players)
+      .where(eq(players.teamId, match.teamId))
+      .orderBy(players.name),
+    db
+      .select()
+      .from(positions)
+      .where(eq(positions.formationId, match.formationId))
+      .orderBy(asc(positions.sortOrder)),
+    db
+      .select()
+      .from(matchPlayers)
+      .where(eq(matchPlayers.matchId, matchId)),
   ]);
 
-  const calledByPlayerId = new Set(mps.map((mp) => mp.playerId).filter((v): v is number => v !== null));
-  const guestMps = mps.filter((mp) => mp.isGuest);
-  const playerMps = mps.filter((mp) => !mp.isGuest);
+  const prereqs = await computeSchedulePrereqs(matchId);
+
+  const schedule = match.generatedScheduleJson as Schedule | null;
+
   const nameOf = (mp: {
     isGuest: boolean;
     guestName: string | null;
@@ -62,7 +79,14 @@ export default async function MatchPage({
     return p?.name ?? "Okänd";
   };
 
-  const schedule = match.generatedScheduleJson as Schedule | null;
+  const initialMatchPlayers = mps.map((mp) => ({
+    id: mp.id,
+    playerId: mp.playerId,
+    isGuest: mp.isGuest,
+    guestName: mp.guestName,
+    playablePositionIds: mp.playablePositionIds ?? [],
+    preferredPositionIds: mp.preferredPositionIds ?? [],
+  }));
 
   return (
     <div>
@@ -72,13 +96,14 @@ export default async function MatchPage({
 
       <div className="flex flex-wrap gap-3 items-start justify-between mt-2 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">vs {match.opponent}</h1>
+          <h1 className="text-2xl font-bold">
+            {team.name} vs {match.opponent}
+          </h1>
           <div className="text-sm text-neutral-600 mt-1">
-            {team.name} · {formation.name} ·{" "}
+            {formation.name} ·{" "}
             {match.playedAt
-              ? new Date(match.playedAt).toLocaleString("sv-SE")
+              ? new Date(match.playedAt).toLocaleDateString("sv-SE")
               : "Utan datum"}
-            {match.location ? ` · ${match.location}` : ""}
           </div>
         </div>
 
@@ -102,169 +127,85 @@ export default async function MatchPage({
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardTitle>Kallade spelare</CardTitle>
-          <p className="text-xs text-neutral-600 mt-1 mb-3">
-            Välj vilka från laget som spelar den här matchen.
-          </p>
-          <form action={saveCalledPlayers} className="mt-2">
-            <input type="hidden" name="matchId" value={match.id} />
-            <div className="max-h-64 overflow-auto border border-border rounded-md p-2">
-              {teamPlayers.length === 0 ? (
-                <p className="text-sm text-neutral-600">
-                  Inga spelare i laget.{" "}
-                  <Link href={`/teams/${team.id}`} className="text-primary hover:underline">
-                    Lägg till här
-                  </Link>
-                  .
-                </p>
-              ) : (
-                teamPlayers.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 py-1">
-                    <input
-                      type="checkbox"
-                      name="called"
-                      value={p.id}
-                      defaultChecked={calledByPlayerId.has(p.id)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">
-                      {p.name}
-                      {p.nickname ? (
-                        <span className="text-neutral-500"> ({p.nickname})</span>
-                      ) : null}
-                    </span>
-                  </label>
-                ))
-              )}
-            </div>
-            <Button type="submit" className="mt-3" variant="secondary">
-              Spara kallade
-            </Button>
-          </form>
-
-          <div className="mt-6 border-t border-border pt-4">
-            <div className="font-medium mb-2">Gästspelare</div>
-            <form action={addGuest} className="flex gap-2">
-              <input type="hidden" name="matchId" value={match.id} />
-              <Input name="guestName" placeholder="Gästens namn" maxLength={60} />
-              <Button type="submit" variant="secondary">
-                Lägg till
-              </Button>
-            </form>
-            {guestMps.length > 0 ? (
-              <ul className="mt-2 text-sm">
-                {guestMps.map((mp) => (
-                  <li key={mp.id} className="flex items-center justify-between py-1">
-                    <span>{mp.guestName}</span>
-                    <form action={removeMatchPlayer}>
-                      <input type="hidden" name="matchId" value={match.id} />
-                      <input type="hidden" name="id" value={mp.id} />
-                      <button className="text-red-600 hover:underline">Ta bort</button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </Card>
-
-        <Card>
-          <CardTitle>Positioner per spelare</CardTitle>
-          <p className="text-xs text-neutral-600 mt-1 mb-3">
-            Markera vilka positioner varje spelare <em>kan</em> spela (spelbara) och
-            vilka hen föredrar (önskade, delmängd).
-          </p>
-          {mps.length === 0 ? (
-            <p className="text-sm text-neutral-600">
-              Kalla spelare till matchen först.
-            </p>
-          ) : (
-            <form action={savePositionSelections}>
-              <input type="hidden" name="matchId" value={match.id} />
-              <div className="space-y-4 max-h-96 overflow-auto">
-                {mps.map((mp) => (
-                  <div
-                    key={mp.id}
-                    className="border border-border rounded-md p-3"
-                  >
-                    <div className="font-medium mb-2">{nameOf(mp)}</div>
-                    <div className="text-xs text-neutral-600 mb-1">Spelbara</div>
-                    <div className="grid grid-cols-2 gap-1 mb-2">
-                      {posList.map((pos) => (
-                        <label
-                          key={pos.id}
-                          className="flex items-center gap-1 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            name={`playable_${mp.id}`}
-                            value={pos.id}
-                            defaultChecked={(mp.playablePositionIds ?? []).includes(pos.id)}
-                          />
-                          <span>
-                            {pos.abbreviation}{" "}
-                            <span className="text-neutral-500">({pos.name})</span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="text-xs text-neutral-600 mb-1">Önskade</div>
-                    <div className="grid grid-cols-2 gap-1">
-                      {posList.map((pos) => (
-                        <label
-                          key={pos.id}
-                          className="flex items-center gap-1 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            name={`preferred_${mp.id}`}
-                            value={pos.id}
-                            defaultChecked={(mp.preferredPositionIds ?? []).includes(pos.id)}
-                          />
-                          <span>{pos.abbreviation}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button type="submit" className="mt-3">
-                Spara positioner
-              </Button>
-            </form>
-          )}
-        </Card>
-      </div>
+      <Card>
+        <CardTitle>Spelare</CardTitle>
+        <PlayersSection
+          matchId={match.id}
+          teamPlayers={teamPlayers}
+          positions={posList.map((p) => ({
+            id: p.id,
+            name: p.name,
+            abbreviation: p.abbreviation,
+          }))}
+          initialMatchPlayers={initialMatchPlayers}
+        />
+      </Card>
 
       <Card className="mt-6">
         <div className="flex flex-wrap gap-3 items-center justify-between">
           <CardTitle>Schema</CardTitle>
-          <form action={generateScheduleAction}>
-            <input type="hidden" name="matchId" value={match.id} />
-            <Button type="submit" variant={schedule ? "secondary" : "primary"}>
-              {schedule ? "Regenerera" : "Generera schema"}
+          {prereqs.ok ? (
+            <form action={generateScheduleAction}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <Button type="submit" variant={schedule ? "secondary" : "primary"}>
+                {schedule ? "Regenerera" : "Generera schema"}
+              </Button>
+            </form>
+          ) : (
+            <Button type="button" disabled variant="secondary">
+              Generera schema
             </Button>
-          </form>
+          )}
         </div>
+
+        {sp.genError ? (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900 whitespace-pre-wrap">
+            {sp.genError}
+          </div>
+        ) : null}
+
+        {sp.genOk && schedule ? (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+            Schema genererat.
+          </div>
+        ) : null}
+
+        {!prereqs.ok ? (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="font-medium mb-1">
+              Det saknas något innan vi kan generera ett schema:
+            </div>
+            <ul className="list-disc ml-5 space-y-0.5">
+              {prereqs.reasons.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {!schedule ? (
           <p className="text-sm text-neutral-600 mt-3">
-            Inget schema genererat ännu. Kalla spelare, ange positioner, och klicka
-            "Generera schema".
+            Inget schema genererat ännu. Kalla spelarna och tryck på knappen.
           </p>
         ) : (
-          <ScheduleView schedule={schedule} positions={posList} mps={mps} nameOf={nameOf} />
+          <ScheduleView
+            schedule={schedule}
+            positions={posList}
+            mps={mps}
+            nameOf={nameOf}
+          />
         )}
       </Card>
 
-      <Card className="mt-6 border-red-100">
+      <Card className="mt-10 border-red-100">
         <CardTitle>Radera match</CardTitle>
-        <form action={deleteMatch} className="mt-2">
+        <p className="text-xs text-neutral-600 mt-1 mb-3">
+          Raderar matchen och genererat schema permanent.
+        </p>
+        <form action={deleteMatch}>
           <input type="hidden" name="id" value={match.id} />
           <Button variant="danger" size="sm" type="submit">
-            Radera permanent
+            Radera match permanent
           </Button>
         </form>
       </Card>

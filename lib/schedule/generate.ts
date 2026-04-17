@@ -30,6 +30,8 @@ function evenlyDistributedMinutes(count: number, total: number): number[] {
   return result.sort((a, b) => a - b);
 }
 
+const PREFERRED_POSITION_BONUS = 25;
+
 function pickLineup(
   players: ScheduleInput["players"],
   positions: ScheduleInput["formation"]["positions"],
@@ -47,7 +49,11 @@ function pickLineup(
     if (eligible.length === 0) return null;
     const picked = weightedPick(rng, eligible, (p) => {
       const m = minutesSoFar[p.id] ?? 0;
-      return 10 + Math.max(0, 30 - m);
+      const base = 10 + Math.max(0, 30 - m);
+      const preferBonus = p.preferredPositionIds.includes(posId)
+        ? PREFERRED_POSITION_BONUS
+        : 0;
+      return base + preferBonus;
     });
     if (!picked) return null;
     used.add(picked.id);
@@ -110,7 +116,11 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
 
         const inPlayer = weightedPick(rng, fit, (p) => {
           const m = minutesSoFar[p.id] ?? 0;
-          return 5 + Math.max(0, 40 - m);
+          const base = 5 + Math.max(0, 40 - m);
+          const preferBonus = p.preferredPositionIds.includes(posId)
+            ? PREFERRED_POSITION_BONUS
+            : 0;
+          return base + preferBonus;
         });
         if (!inPlayer) continue;
 

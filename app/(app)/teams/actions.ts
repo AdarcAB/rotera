@@ -23,15 +23,15 @@ export async function createTeam(formData: FormData) {
   redirect(`/teams/${inserted.id}`);
 }
 
-export async function renameTeam(formData: FormData) {
+export async function renameTeam(teamId: number, name: string) {
   const userId = await requireUserId();
-  const id = Number(formData.get("id"));
-  const parsed = TeamInput.parse({ name: formData.get("name") });
+  const parsed = TeamInput.parse({ name });
   await db
     .update(teams)
     .set({ name: parsed.name })
-    .where(and(eq(teams.id, id), eq(teams.userId, userId)));
-  revalidatePath(`/teams/${id}`);
+    .where(and(eq(teams.id, teamId), eq(teams.userId, userId)));
+  revalidatePath(`/teams/${teamId}`);
+  revalidatePath("/teams");
 }
 
 export async function deleteTeam(formData: FormData) {
@@ -42,23 +42,6 @@ export async function deleteTeam(formData: FormData) {
   redirect("/teams");
 }
 
-const PlayerInput = z.object({
-  name: z.string().trim().min(1, "Namn krävs").max(80),
-  nickname: z
-    .string()
-    .trim()
-    .max(40)
-    .optional()
-    .transform((v) => (v && v.length > 0 ? v : null)),
-  shirtNumber: z
-    .string()
-    .optional()
-    .transform((v) => (v && v.length > 0 ? Number(v) : null))
-    .refine((v) => v === null || (Number.isFinite(v) && v! >= 0 && v! < 1000), {
-      message: "Ogiltigt tröjnummer",
-    }),
-});
-
 async function assertTeamOwned(teamId: number, userId: number) {
   const rows = await db
     .select()
@@ -68,28 +51,43 @@ async function assertTeamOwned(teamId: number, userId: number) {
   if (rows.length === 0) throw new Error("Lag saknas eller fel ägare");
 }
 
-export async function addPlayer(formData: FormData) {
+const PlayerName = z.string().trim().min(1, "Namn krävs").max(80);
+
+export async function createPlayer(
+  teamId: number,
+  name: string
+): Promise<{ id: number; name: string }> {
   const userId = await requireUserId();
-  const teamId = Number(formData.get("teamId"));
   await assertTeamOwned(teamId, userId);
-  const parsed = PlayerInput.parse({
-    name: formData.get("name"),
-    nickname: formData.get("nickname"),
-    shirtNumber: formData.get("shirtNumber"),
-  });
-  await db.insert(players).values({
-    teamId,
-    name: parsed.name,
-    nickname: parsed.nickname,
-    shirtNumber: parsed.shirtNumber,
-  });
+  const parsed = PlayerName.parse(name);
+  const [inserted] = await db
+    .insert(players)
+    .values({ teamId, name: parsed })
+    .returning();
+  revalidatePath(`/teams/${teamId}`);
+  return { id: inserted.id, name: inserted.name };
+}
+
+export async function renamePlayer(
+  playerId: number,
+  teamId: number,
+  name: string
+): Promise<void> {
+  const userId = await requireUserId();
+  await assertTeamOwned(teamId, userId);
+  const parsed = PlayerName.parse(name);
+  await db
+    .update(players)
+    .set({ name: parsed })
+    .where(and(eq(players.id, playerId), eq(players.teamId, teamId)));
   revalidatePath(`/teams/${teamId}`);
 }
 
-export async function deletePlayer(formData: FormData) {
+export async function deletePlayer(
+  playerId: number,
+  teamId: number
+): Promise<void> {
   const userId = await requireUserId();
-  const playerId = Number(formData.get("playerId"));
-  const teamId = Number(formData.get("teamId"));
   await assertTeamOwned(teamId, userId);
   await db
     .delete(players)

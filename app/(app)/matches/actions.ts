@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -89,116 +89,224 @@ export async function deleteMatch(formData: FormData) {
   redirect("/matches");
 }
 
-export async function saveCalledPlayers(formData: FormData) {
+async function allPositionIds(formationId: number): Promise<number[]> {
+  const list = await db
+    .select({ id: positions.id })
+    .from(positions)
+    .where(eq(positions.formationId, formationId));
+  return list.map((r) => r.id);
+}
+
+export type MatchPlayerDTO = {
+  id: number;
+  playerId: number | null;
+  isGuest: boolean;
+  guestName: string | null;
+  playablePositionIds: number[];
+  preferredPositionIds: number[];
+};
+
+export async function togglePlayerCalledAction(
+  matchId: number,
+  playerId: number,
+  called: boolean
+): Promise<MatchPlayerDTO | null> {
   const userId = await requireUserId();
-  const matchId = Number(formData.get("matchId"));
   const match = await assertOwned(matchId, userId);
 
-  const teamPlayers = await db
+  const [teamPlayer] = await db
     .select()
     .from(players)
-    .where(eq(players.teamId, match.teamId));
-
-  const calledIds = formData
-    .getAll("called")
-    .map((v) => Number(v))
-    .filter((n) => Number.isFinite(n));
+    .where(and(eq(players.id, playerId), eq(players.teamId, match.teamId)))
+    .limit(1);
+  if (!teamPlayer) throw new Error("Spelare saknas i laget");
 
   const existing = await db
     .select()
     .from(matchPlayers)
-    .where(eq(matchPlayers.matchId, matchId));
-  const existingByPlayer = new Map<number | null, typeof existing[number]>();
-  for (const mp of existing) existingByPlayer.set(mp.playerId, mp);
+    .where(
+      and(eq(matchPlayers.matchId, matchId), eq(matchPlayers.playerId, playerId))
+    )
+    .limit(1);
 
-  const teamPlayerIds = new Set(teamPlayers.map((p) => p.id));
-  const validCalled = calledIds.filter((id) => teamPlayerIds.has(id));
-
-  for (const id of validCalled) {
-    if (!existingByPlayer.has(id)) {
-      await db.insert(matchPlayers).values({
-        matchId,
-        playerId: id,
-        isGuest: false,
-      });
+  if (called) {
+    if (existing.length > 0) {
+      const row = existing[0];
+      revalidatePath(`/matches/${matchId}`);
+      return {
+        id: row.id,
+        playerId: row.playerId,
+        isGuest: row.isGuest,
+        guestName: row.guestName,
+        playablePositionIds: row.playablePositionIds ?? [],
+        preferredPositionIds: row.preferredPositionIds ?? [],
+      };
     }
+    const posIds = await allPositionIds(match.formationId);
+    const [inserted] = await db
+      .insert(matchPlayers)
+      .values({
+        matchId,
+        playerId,
+        isGuest: false,
+        playablePositionIds: posIds,
+        preferredPositionIds: [],
+      })
+      .returning();
+    revalidatePath(`/matches/${matchId}`);
+    return {
+      id: inserted.id,
+      playerId: inserted.playerId,
+      isGuest: inserted.isGuest,
+      guestName: inserted.guestName,
+      playablePositionIds: inserted.playablePositionIds ?? [],
+      preferredPositionIds: inserted.preferredPositionIds ?? [],
+    };
   }
-  const toRemove = existing.filter(
-    (mp) =>
-      mp.playerId !== null && !validCalled.includes(mp.playerId) && !mp.isGuest
-  );
-  if (toRemove.length > 0) {
-    await db
-      .delete(matchPlayers)
-      .where(
-        inArray(
-          matchPlayers.id,
-          toRemove.map((mp) => mp.id)
-        )
-      );
+
+  if (existing.length > 0) {
+    await db.delete(matchPlayers).where(eq(matchPlayers.id, existing[0].id));
+    revalidatePath(`/matches/${matchId}`);
   }
-  revalidatePath(`/matches/${matchId}`);
+  return null;
 }
 
-export async function addGuest(formData: FormData) {
+export async function addGuestAction(
+  matchId: number,
+  name: string
+): Promise<MatchPlayerDTO | null> {
   const userId = await requireUserId();
-  const matchId = Number(formData.get("matchId"));
-  await assertOwned(matchId, userId);
-  const name = String(formData.get("guestName") ?? "").trim();
-  if (!name) return;
-  await db.insert(matchPlayers).values({
-    matchId,
-    isGuest: true,
-    guestName: name,
-  });
+  const match = await assertOwned(matchId, userId);
+  const cleaned = name.trim().slice(0, 60);
+  if (!cleaned) return null;
+  const posIds = await allPositionIds(match.formationId);
+  const [inserted] = await db
+    .insert(matchPlayers)
+    .values({
+      matchId,
+      isGuest: true,
+      guestName: cleaned,
+      playablePositionIds: posIds,
+      preferredPositionIds: [],
+    })
+    .returning();
   revalidatePath(`/matches/${matchId}`);
+  return {
+    id: inserted.id,
+    playerId: inserted.playerId,
+    isGuest: inserted.isGuest,
+    guestName: inserted.guestName,
+    playablePositionIds: inserted.playablePositionIds ?? [],
+    preferredPositionIds: inserted.preferredPositionIds ?? [],
+  };
 }
 
-export async function removeMatchPlayer(formData: FormData) {
+export async function removeMatchPlayerAction(
+  matchId: number,
+  mpId: number
+): Promise<void> {
   const userId = await requireUserId();
-  const matchId = Number(formData.get("matchId"));
-  const id = Number(formData.get("id"));
   await assertOwned(matchId, userId);
   await db
     .delete(matchPlayers)
-    .where(and(eq(matchPlayers.id, id), eq(matchPlayers.matchId, matchId)));
+    .where(and(eq(matchPlayers.id, mpId), eq(matchPlayers.matchId, matchId)));
   revalidatePath(`/matches/${matchId}`);
 }
 
-export async function savePositionSelections(formData: FormData) {
+export async function updateMatchPlayerPositionsAction(
+  matchId: number,
+  mpId: number,
+  playable: number[],
+  preferred: number[]
+): Promise<void> {
   const userId = await requireUserId();
-  const matchId = Number(formData.get("matchId"));
-  await assertOwned(matchId, userId);
+  const match = await assertOwned(matchId, userId);
+  const validIds = new Set(await allPositionIds(match.formationId));
+  const cleanPlayable = Array.from(new Set(playable.filter((id) => validIds.has(id)))).sort(
+    (a, b) => a - b
+  );
+  const cleanPreferred = Array.from(
+    new Set(preferred.filter((id) => cleanPlayable.includes(id)))
+  ).sort((a, b) => a - b);
+  await db
+    .update(matchPlayers)
+    .set({
+      playablePositionIds: cleanPlayable,
+      preferredPositionIds: cleanPreferred,
+    })
+    .where(and(eq(matchPlayers.id, mpId), eq(matchPlayers.matchId, matchId)));
+  revalidatePath(`/matches/${matchId}`);
+}
 
+export type SchedulePrereqs = {
+  ok: boolean;
+  reasons: string[];
+};
+
+export async function computeSchedulePrereqs(
+  matchId: number
+): Promise<SchedulePrereqs> {
+  const userId = await requireUserId();
+  const match = await assertOwned(matchId, userId);
+  const formation = await db
+    .select()
+    .from(formations)
+    .where(eq(formations.id, match.formationId))
+    .limit(1)
+    .then((r) => r[0]);
+  const posList = await db
+    .select()
+    .from(positions)
+    .where(eq(positions.formationId, match.formationId));
   const mps = await db
     .select()
     .from(matchPlayers)
     .where(eq(matchPlayers.matchId, matchId));
 
-  for (const mp of mps) {
-    const playable = formData
-      .getAll(`playable_${mp.id}`)
-      .map((v) => Number(v))
-      .filter((n) => Number.isFinite(n));
-    const preferred = formData
-      .getAll(`preferred_${mp.id}`)
-      .map((v) => Number(v))
-      .filter((n) => Number.isFinite(n) && playable.includes(n));
-    await db
-      .update(matchPlayers)
-      .set({
-        playablePositionIds: playable,
-        preferredPositionIds: preferred,
-      })
-      .where(eq(matchPlayers.id, mp.id));
+  const reasons: string[] = [];
+  if (posList.length !== formation.playersOnField) {
+    reasons.push(
+      `Spelformen har ${posList.length} positioner men kräver ${formation.playersOnField} spelare på plan. Öppna spelformen och justera.`
+    );
   }
-  revalidatePath(`/matches/${matchId}`);
+  if (mps.length < formation.playersOnField) {
+    reasons.push(
+      `Minst ${formation.playersOnField} spelare måste vara kallade (just nu: ${mps.length}).`
+    );
+  }
+  const noPlayable = mps.filter(
+    (mp) => (mp.playablePositionIds ?? []).length === 0
+  );
+  if (noPlayable.length > 0) {
+    reasons.push(
+      `${noPlayable.length} kallad(e) spelare saknar spelbara positioner.`
+    );
+  }
+  for (const pos of posList) {
+    const eligible = mps.filter((mp) =>
+      (mp.playablePositionIds ?? []).includes(pos.id)
+    );
+    if (eligible.length === 0) {
+      reasons.push(
+        `Ingen kallad spelare kan spela position "${pos.abbreviation}".`
+      );
+    }
+  }
+  return { ok: reasons.length === 0, reasons };
 }
 
 export async function generateScheduleAction(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
   const match = await assertOwned(matchId, userId);
+
+  const pre = await computeSchedulePrereqs(matchId);
+  if (!pre.ok) {
+    revalidatePath(`/matches/${matchId}`);
+    redirect(
+      `/matches/${matchId}?genError=${encodeURIComponent(pre.reasons.join("\n"))}`
+    );
+  }
 
   const formation = await db
     .select()
@@ -249,8 +357,10 @@ export async function generateScheduleAction(formData: FormData) {
 
   const schedule = generateSchedule(input);
   if (!schedule) {
-    throw new Error(
-      "Kunde inte generera schema. Se till att alla kallade spelare har minst en spelbar position, och att du har minst så många spelare som positioner."
+    redirect(
+      `/matches/${matchId}?genError=${encodeURIComponent(
+        "Optimeraren hittade inget giltigt schema. Prova att kalla fler spelare eller justera spelbara positioner."
+      )}`
     );
   }
 
@@ -263,6 +373,7 @@ export async function generateScheduleAction(formData: FormData) {
     .where(eq(matches.id, matchId));
 
   revalidatePath(`/matches/${matchId}`);
+  redirect(`/matches/${matchId}?genOk=1`);
 }
 
 export async function startLive(formData: FormData) {

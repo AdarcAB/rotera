@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { createMatch } from "./actions";
 
+function todayIso(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default async function MatchesPage() {
   const userId = await requireUserId();
   const [teamList, formationList, matchList] = await Promise.all([
@@ -21,6 +29,8 @@ export default async function MatchesPage() {
   ]);
 
   const canCreate = teamList.length > 0 && formationList.length > 0;
+  const teamNameById = new Map(teamList.map((t) => [t.id, t.name]));
+  const teamNameFor = (id: number) => teamNameById.get(id) ?? "Lag";
 
   return (
     <div>
@@ -88,16 +98,13 @@ export default async function MatchesPage() {
                   </select>
                 </Field>
                 <Field>
-                  <Label htmlFor="playedAt">Datum/tid</Label>
+                  <Label htmlFor="playedAt">Datum</Label>
                   <Input
                     id="playedAt"
                     name="playedAt"
-                    type="datetime-local"
+                    type="date"
+                    defaultValue={todayIso()}
                   />
-                </Field>
-                <Field>
-                  <Label htmlFor="location">Plats</Label>
-                  <Input id="location" name="location" placeholder="Hemmaplan" />
                 </Field>
               </div>
               <Button type="submit">Skapa match</Button>
@@ -117,10 +124,12 @@ export default async function MatchesPage() {
                   className="py-3 flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-medium">vs {m.opponent}</div>
+                    <div className="font-medium">
+                      {teamNameFor(m.teamId)} vs {m.opponent}
+                    </div>
                     <div className="text-xs text-neutral-600">
                       {m.playedAt
-                        ? new Date(m.playedAt).toLocaleString("sv-SE")
+                        ? new Date(m.playedAt).toLocaleDateString("sv-SE")
                         : "Utan datum"}{" "}
                       · {m.status}
                     </div>
