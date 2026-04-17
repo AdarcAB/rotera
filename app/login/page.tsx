@@ -17,7 +17,8 @@ export default async function LoginPage({
         </Link>
         <h1 className="text-2xl font-semibold mt-3 mb-1">Logga in</h1>
         <p className="text-sm text-neutral-600 mb-4">
-          Ange din e-post. En magic-link visas i serverkonsolen (dev-läge).
+          Ange din e-post så mejlar vi en länk för att logga in. Länken gäller i
+          30 minuter och kan bara användas en gång.
         </p>
 
         {sp.sent === "resend" ? (
