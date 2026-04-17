@@ -364,8 +364,9 @@ function PositionsModal({
         </div>
         <div className="p-4">
           <p className="text-xs text-neutral-600 mb-3">
-            <strong>Spelbar</strong>: spelaren kan ställa sig där.{" "}
-            <strong>Önskad</strong>: viktar upp positionen vid schemagenerering.
+            <strong>Spelbar</strong>: spelaren kan spela på positionen.
+            <br />
+            <strong>Önskad</strong>: viktar upp positionen för byten.
           </p>
           <table className="w-full text-sm">
             <thead>
