@@ -442,6 +442,17 @@ export function LiveMatch({
           playerMeta={playerMeta}
           benchIds={benchIds}
           schedule={schedule}
+          plannedInForOutPlayerIds={
+            nextSub
+              ? nextSub.subPoint.changes
+                  .filter(
+                    (c) =>
+                      c.outPlayerId === (currentLineup.get(adHocOpenFor) ?? -1)
+                  )
+                  .map((c) => c.inPlayerId)
+                  .filter((id) => !onFieldIds.has(id))
+              : []
+          }
           onClose={() => setAdHocOpenFor(null)}
           onPick={(inPlayerId) => performAdHocSub(adHocOpenFor, inPlayerId)}
         />
@@ -880,6 +891,7 @@ function AdHocBenchModal({
   playerMeta,
   benchIds,
   schedule,
+  plannedInForOutPlayerIds,
   onClose,
   onPick,
 }: {
@@ -890,6 +902,7 @@ function AdHocBenchModal({
   playerMeta: Record<number, PlayerMeta>;
   benchIds: number[];
   schedule: Schedule;
+  plannedInForOutPlayerIds: number[];
   onClose: () => void;
   onPick: (inPlayerId: number) => void;
 }) {
@@ -899,17 +912,26 @@ function AdHocBenchModal({
     playerMeta[pid]?.preferredPositionIds.includes(positionId) ?? false;
   const scheduledMins = (pid: number): number =>
     schedule.perPlayerMinutes?.[pid] ?? 0;
+  const plannedSet = new Set(plannedInForOutPlayerIds);
+  // Only count "planned" if the player is also spelbar on this position —
+  // otherwise it's a false match (planned for a different position).
+  const isPlannedForOut = (pid: number): boolean =>
+    plannedSet.has(pid) && canPlay(pid);
 
   const sorted = benchIds.slice().sort((a, b) => {
-    // 1. Prefers → top
+    // 1. Planned replacement for the same out-player → top
+    const na = isPlannedForOut(a) ? 1 : 0;
+    const nb = isPlannedForOut(b) ? 1 : 0;
+    if (na !== nb) return nb - na;
+    // 2. Prefers position → next
     const pa = prefers(a) ? 1 : 0;
     const pb = prefers(b) ? 1 : 0;
     if (pa !== pb) return pb - pa;
-    // 2. Playable → before unplayable
+    // 3. Playable → before unplayable
     const ca = canPlay(a) ? 1 : 0;
     const cb = canPlay(b) ? 1 : 0;
     if (ca !== cb) return cb - ca;
-    // 3. Least scheduled minutes → first
+    // 4. Least scheduled minutes → first
     return scheduledMins(a) - scheduledMins(b);
   });
 
@@ -951,23 +973,42 @@ function AdHocBenchModal({
               {sorted.map((id) => {
                 const isPreferred = prefers(id);
                 const isPlayable = canPlay(id);
+                const isPlanned = isPlannedForOut(id);
                 const mins = scheduledMins(id);
-                let label: React.ReactNode;
+                const labels: React.ReactNode[] = [];
+                if (isPlanned) {
+                  labels.push(
+                    <span
+                      key="planned"
+                      className="text-xs text-sky-700 ml-1 font-medium"
+                    >
+                      · planerad ersättare
+                    </span>
+                  );
+                }
                 if (isPreferred) {
-                  label = (
-                    <span className="text-xs text-emerald-700 ml-1">
+                  labels.push(
+                    <span key="pref" className="text-xs text-emerald-700 ml-1">
                       · önskar denna
                     </span>
                   );
                 } else if (isPlayable) {
-                  label = (
-                    <span className="text-xs text-neutral-600 ml-1">
-                      · spelbar
-                    </span>
-                  );
+                  if (!isPlanned) {
+                    labels.push(
+                      <span
+                        key="play"
+                        className="text-xs text-neutral-600 ml-1"
+                      >
+                        · spelbar
+                      </span>
+                    );
+                  }
                 } else {
-                  label = (
-                    <span className="text-xs text-amber-700 ml-1">
+                  labels.push(
+                    <span
+                      key="nop"
+                      className="text-xs text-amber-700 ml-1"
+                    >
                       · ej markerad som spelbar
                     </span>
                   );
@@ -981,7 +1022,7 @@ function AdHocBenchModal({
                     >
                       <div>
                         <div className="font-medium">
-                          {playerMap[id] ?? "?"} {label}
+                          {playerMap[id] ?? "?"} {labels}
                         </div>
                         <div className="text-xs text-neutral-500">
                           {mins} min i schema
