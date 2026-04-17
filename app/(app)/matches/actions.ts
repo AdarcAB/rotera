@@ -416,18 +416,44 @@ export async function finishMatch(formData: FormData) {
   const match = await assertOwned(matchId, userId);
 
   const schedule = match.generatedScheduleJson as
-    | {
-        perPlayerMinutes: Record<string, number>;
-      }
+    | { perPlayerMinutes: Record<string, number> }
     | null;
   if (schedule) {
-    const perPlayer = schedule.perPlayerMinutes ?? {};
+    const formation = await db
+      .select()
+      .from(formations)
+      .where(eq(formations.id, match.formationId))
+      .limit(1)
+      .then((r) => r[0]);
+    const perPlayer: Record<string, number> = {
+      ...(schedule.perPlayerMinutes ?? {}),
+    };
+    const liveState = match.liveStateJson as
+      | {
+          adHocSubs?: {
+            periodIndex: number;
+            minuteInPeriod: number;
+            outPlayerId: number;
+            inPlayerId: number;
+          }[];
+        }
+      | null;
+    const adHocs = liveState?.adHocSubs ?? [];
+    const mpp = formation.minutesPerPeriod;
+    for (const sub of adHocs) {
+      const remaining = Math.max(0, mpp - sub.minuteInPeriod);
+      const outKey = String(sub.outPlayerId);
+      const inKey = String(sub.inPlayerId);
+      perPlayer[outKey] = (perPlayer[outKey] ?? 0) - remaining;
+      perPlayer[inKey] = (perPlayer[inKey] ?? 0) + remaining;
+    }
     for (const [mpIdStr, mins] of Object.entries(perPlayer)) {
       const mpId = Number(mpIdStr);
       if (!Number.isFinite(mpId)) continue;
+      const clamped = Math.max(0, Math.round(Number(mins) || 0));
       await db
         .update(matchPlayers)
-        .set({ actualMinutesPlayed: Number(mins) || 0 })
+        .set({ actualMinutesPlayed: clamped })
         .where(and(eq(matchPlayers.id, mpId), eq(matchPlayers.matchId, matchId)));
     }
   }

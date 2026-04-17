@@ -88,10 +88,19 @@ export default async function LivePage({
   );
 }
 
+export type AdHocSub = {
+  periodIndex: number;
+  minuteInPeriod: number;
+  positionId: number;
+  outPlayerId: number;
+  inPlayerId: number;
+};
+
 export type LiveState = {
   status: "pre_period" | "running" | "paused" | "finished";
   currentPeriodIndex: number;
   resumedAt: string | null;
   elapsedBeforePause: number;
   completedSubPoints: { periodIndex: number; subPointIndex: number }[];
+  adHocSubs?: AdHocSub[];
 };

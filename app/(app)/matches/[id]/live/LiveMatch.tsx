@@ -5,7 +5,7 @@ import type { Schedule } from "@/lib/schedule/types";
 import { Button } from "@/components/ui/Button";
 import { formatTime } from "@/lib/utils";
 import { persistLiveState, finishMatch } from "./actions";
-import type { LiveState } from "./page";
+import type { AdHocSub, LiveState } from "./page";
 
 const PRE_SUB_WARN_SECONDS = 10;
 
@@ -39,31 +39,52 @@ function defaultLiveState(): LiveState {
     resumedAt: null,
     elapsedBeforePause: 0,
     completedSubPoints: [],
+    adHocSubs: [],
   };
 }
 
 type LineupState = Map<number, number>;
 
-function buildLineupAtSubPoint(
-  schedule: Schedule,
+function applyAdHocSubsForPeriod(
+  lineup: LineupState,
+  adHocSubs: AdHocSub[] | undefined,
   periodIndex: number,
-  subPointIndex: number
+  uptoMinute: number
 ): LineupState {
-  const period = schedule.periods[periodIndex];
-  const lineup: LineupState = new Map();
-  for (const slot of period.startLineup) lineup.set(slot.positionId, slot.playerId);
-  const sorted = [...period.subPoints].sort((a, b) => a.minuteInPeriod - b.minuteInPeriod);
-  for (let i = 0; i <= subPointIndex; i++) {
-    if (i >= sorted.length) break;
-    for (const c of sorted[i].changes) lineup.set(c.positionId, c.inPlayerId);
-  }
+  if (!adHocSubs || adHocSubs.length === 0) return lineup;
+  const sorted = [...adHocSubs]
+    .filter((s) => s.periodIndex === periodIndex && s.minuteInPeriod <= uptoMinute)
+    .sort((a, b) => a.minuteInPeriod - b.minuteInPeriod);
+  for (const sub of sorted) lineup.set(sub.positionId, sub.inPlayerId);
   return lineup;
 }
 
-function nextPeriodStartLineup(schedule: Schedule, periodIndex: number): LineupState {
-  const period = schedule.periods[periodIndex];
+function buildCurrentLineup(
+  schedule: Schedule,
+  live: LiveState,
+  elapsedSec: number
+): LineupState {
+  const minuteInPeriod = Math.floor(elapsedSec / 60);
+  const period = schedule.periods[live.currentPeriodIndex];
   const lineup: LineupState = new Map();
+
+  // start from period start lineup
   for (const slot of period.startLineup) lineup.set(slot.positionId, slot.playerId);
+
+  // apply completed scheduled sub points
+  const sortedSubs = [...period.subPoints].sort(
+    (a, b) => a.minuteInPeriod - b.minuteInPeriod
+  );
+  const completedInPeriod = (live.completedSubPoints ?? [])
+    .filter((c) => c.periodIndex === live.currentPeriodIndex)
+    .map((c) => c.subPointIndex);
+  for (let i = 0; i < sortedSubs.length; i++) {
+    if (completedInPeriod.includes(i)) {
+      for (const c of sortedSubs[i].changes) lineup.set(c.positionId, c.inPlayerId);
+    }
+  }
+
+  applyAdHocSubsForPeriod(lineup, live.adHocSubs, live.currentPeriodIndex, minuteInPeriod);
   return lineup;
 }
 
@@ -88,6 +109,7 @@ export function LiveMatch({
   const [now, setNow] = useState<number>(() => Date.now());
   const beepedRef = useRef<Set<string>>(new Set());
   const [, startSave] = useTransition();
+  const [adHocOpenFor, setAdHocOpenFor] = useState<number | null>(null);
 
   useEffect(() => {
     if (live.status !== "running") return;
@@ -120,6 +142,8 @@ export function LiveMatch({
   }, [live, now]);
 
   const remainingSec = Math.max(0, Math.round((periodMs - elapsedMs) / 1000));
+  const elapsedSec = Math.round(elapsedMs / 1000);
+  const minuteInPeriod = Math.floor(elapsedSec / 60);
 
   const currentPeriod = schedule.periods[live.currentPeriodIndex];
   const sortedSubPoints = useMemo(
@@ -132,12 +156,16 @@ export function LiveMatch({
     [currentPeriod]
   );
 
-  const elapsedSec = Math.round(elapsedMs / 1000);
   const nextSub = useMemo(() => {
     for (let i = 0; i < sortedSubPoints.length; i++) {
       const sp = sortedSubPoints[i];
       const key = `${live.currentPeriodIndex}:${i}`;
-      if (live.completedSubPoints.some((c) => c.periodIndex === live.currentPeriodIndex && c.subPointIndex === i)) {
+      if (
+        live.completedSubPoints.some(
+          (c) =>
+            c.periodIndex === live.currentPeriodIndex && c.subPointIndex === i
+        )
+      ) {
         continue;
       }
       return { subPoint: sp, index: i, key };
@@ -193,9 +221,7 @@ export function LiveMatch({
         currentPeriodIndex: Math.min(numPeriods - 1, live.currentPeriodIndex + 1),
       };
       const isLast = live.currentPeriodIndex >= numPeriods - 1;
-      if (isLast) {
-        next.status = "finished";
-      }
+      if (isLast) next.status = "finished";
       setLive(next);
       saveLive(next);
     }
@@ -215,7 +241,8 @@ export function LiveMatch({
 
   const handlePause = () => {
     if (live.status !== "running" || !live.resumedAt) return;
-    const elapsed = live.elapsedBeforePause + (Date.now() - new Date(live.resumedAt).getTime());
+    const elapsed =
+      live.elapsedBeforePause + (Date.now() - new Date(live.resumedAt).getTime());
     const next: LiveState = {
       ...live,
       status: "paused",
@@ -263,42 +290,53 @@ export function LiveMatch({
   };
 
   const currentLineup = useMemo<LineupState>(() => {
-    if (live.status === "pre_period") {
-      return nextPeriodStartLineup(schedule, live.currentPeriodIndex);
+    if (live.status === "pre_period" || live.status === "finished") {
+      const map: LineupState = new Map();
+      const period = schedule.periods[live.currentPeriodIndex];
+      if (!period) return map;
+      for (const slot of period.startLineup) map.set(slot.positionId, slot.playerId);
+      return map;
     }
-    const completedInPeriod = live.completedSubPoints
-      .filter((c) => c.periodIndex === live.currentPeriodIndex)
-      .map((c) => c.subPointIndex);
-    if (completedInPeriod.length === 0) {
-      return new Map(
-        currentPeriod.startLineup.map((s) => [s.positionId, s.playerId])
-      );
-    }
-    const maxIdx = Math.max(...completedInPeriod);
-    return buildLineupAtSubPoint(schedule, live.currentPeriodIndex, maxIdx);
-  }, [live, schedule, currentPeriod]);
+    return buildCurrentLineup(schedule, live, elapsedSec);
+  }, [live, schedule, elapsedSec]);
 
   const allPlayerIds = Object.keys(playerMap).map((k) => Number(k));
   const onFieldIds = new Set(currentLineup.values());
   const benchIds = allPlayerIds.filter((id) => !onFieldIds.has(id));
 
+  const performAdHocSub = (positionId: number, inPlayerId: number) => {
+    const outPlayerId = currentLineup.get(positionId);
+    if (outPlayerId === undefined || outPlayerId === inPlayerId) return;
+    const sub: AdHocSub = {
+      periodIndex: live.currentPeriodIndex,
+      minuteInPeriod,
+      positionId,
+      outPlayerId,
+      inPlayerId,
+    };
+    const next: LiveState = {
+      ...live,
+      adHocSubs: [...(live.adHocSubs ?? []), sub],
+    };
+    setLive(next);
+    saveLive(next);
+    setAdHocOpenFor(null);
+  };
+
   if (live.status === "finished") {
-    return (
-      <FinishedView matchId={matchId} />
-    );
+    return <FinishedView matchId={matchId} />;
   }
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-2 text-sm text-neutral-600 flex items-center gap-3">
-        <a
-          href={`/matches/${matchId}`}
-          className="hover:underline"
-        >
+        <a href={`/matches/${matchId}`} className="hover:underline">
           ← Match
         </a>
         <span>·</span>
-        <span>Period {live.currentPeriodIndex + 1} av {numPeriods}</span>
+        <span>
+          Period {live.currentPeriodIndex + 1} av {numPeriods}
+        </span>
       </div>
 
       {live.status === "pre_period" ? (
@@ -322,9 +360,11 @@ export function LiveMatch({
           benchIds={benchIds}
           positionMap={positionMap}
           playerMap={playerMap}
+          schedule={schedule}
           onPause={handlePause}
           onResume={handleResume}
           onJumpToBreak={handleJumpToBreak}
+          onTapFieldPlayer={(posId) => setAdHocOpenFor(posId)}
         />
       )}
 
@@ -334,6 +374,19 @@ export function LiveMatch({
           positionMap={positionMap}
           playerMap={playerMap}
           onComplete={handleCompleteSub}
+        />
+      ) : null}
+
+      {adHocOpenFor !== null ? (
+        <AdHocBenchModal
+          positionId={adHocOpenFor}
+          outPlayerId={currentLineup.get(adHocOpenFor) ?? 0}
+          positionMap={positionMap}
+          playerMap={playerMap}
+          benchIds={benchIds}
+          schedule={schedule}
+          onClose={() => setAdHocOpenFor(null)}
+          onPick={(inPlayerId) => performAdHocSub(adHocOpenFor, inPlayerId)}
         />
       ) : null}
     </div>
@@ -356,7 +409,9 @@ function PrePeriodView({
   onStart: () => void;
 }) {
   const period = schedule.periods[periodIndex];
-  const sortedPositions = [...period.startLineup].sort((a, b) => a.positionId - b.positionId);
+  const sortedPositions = [...period.startLineup].sort(
+    (a, b) => a.positionId - b.positionId
+  );
 
   const allIds = Object.keys(playerMap).map((k) => Number(k));
   const onFieldIds = new Set(sortedPositions.map((s) => s.playerId));
@@ -377,7 +432,11 @@ function PrePeriodView({
 
       <div className="rounded-lg border border-border bg-white p-4 mb-4">
         <div className="font-semibold mb-3">Uppställning</div>
-        <Pitch lineup={sortedPositions} positionMap={positionMap} playerMap={playerMap} />
+        <Pitch
+          lineup={sortedPositions}
+          positionMap={positionMap}
+          playerMap={playerMap}
+        />
       </div>
 
       <div className="rounded-lg border border-border bg-white p-4 mb-4">
@@ -430,11 +489,7 @@ function PrePeriodView({
         )}
       </div>
 
-      <Button
-        size="xl"
-        className="w-full bg-primary"
-        onClick={onStart}
-      >
+      <Button size="xl" className="w-full bg-primary" onClick={onStart}>
         ▶ Starta period {periodIndex + 1}
       </Button>
     </div>
@@ -452,9 +507,11 @@ function RunningView({
   benchIds,
   positionMap,
   playerMap,
+  schedule,
   onPause,
   onResume,
   onJumpToBreak,
+  onTapFieldPlayer,
 }: {
   live: LiveState;
   elapsedSec: number;
@@ -466,9 +523,11 @@ function RunningView({
   benchIds: number[];
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
+  schedule: Schedule;
   onPause: () => void;
   onResume: () => void;
   onJumpToBreak: () => void;
+  onTapFieldPlayer: (positionId: number) => void;
 }) {
   return (
     <div>
@@ -495,7 +554,10 @@ function RunningView({
       </div>
 
       <div className="rounded-lg border border-border bg-white p-4 mb-3">
-        <div className="font-semibold mb-2">På plan</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-semibold">På plan</div>
+          <div className="text-xs text-neutral-500">Tryck på en spelare för byte</div>
+        </div>
         <Pitch
           lineup={Array.from(currentLineup.entries()).map(([positionId, playerId]) => ({
             positionId,
@@ -503,8 +565,16 @@ function RunningView({
           }))}
           positionMap={positionMap}
           playerMap={playerMap}
+          onTap={onTapFieldPlayer}
         />
       </div>
+
+      <UpcomingSubsPreview
+        live={live}
+        schedule={schedule}
+        positionMap={positionMap}
+        playerMap={playerMap}
+      />
 
       <div className="rounded-lg border border-border bg-white p-3 mb-4">
         <div className="font-semibold mb-2 text-sm">Bänk</div>
@@ -542,6 +612,108 @@ function RunningView({
   );
 }
 
+function UpcomingSubsPreview({
+  live,
+  schedule,
+  positionMap,
+  playerMap,
+}: {
+  live: LiveState;
+  schedule: Schedule;
+  positionMap: Record<number, { name: string; abbreviation: string }>;
+  playerMap: Record<number, string>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const period = schedule.periods[live.currentPeriodIndex];
+  if (!period) return null;
+  const sortedSubs = [...period.subPoints].sort(
+    (a, b) => a.minuteInPeriod - b.minuteInPeriod
+  );
+  const remaining = sortedSubs
+    .map((sp, i) => ({ sp, i }))
+    .filter(
+      ({ i }) =>
+        !live.completedSubPoints.some(
+          (c) => c.periodIndex === live.currentPeriodIndex && c.subPointIndex === i
+        )
+    );
+
+  if (remaining.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-white p-3 mb-3 text-sm text-neutral-500">
+        Inga fler planerade byten i perioden.
+      </div>
+    );
+  }
+
+  const [next, ...later] = remaining;
+
+  return (
+    <div className="rounded-lg border border-border bg-white p-3 mb-3">
+      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">
+        Nästa byte
+      </div>
+      <div className="mb-1 font-semibold text-base">
+        {next.sp.minuteInPeriod}&apos;
+        {next.sp.changes.length > 1
+          ? ` · ${next.sp.changes.length} spelarbyten`
+          : ""}
+      </div>
+      <ul className="space-y-0.5 text-sm mb-2">
+        {next.sp.changes.length === 0 ? (
+          <li className="text-neutral-500">(inget byte)</li>
+        ) : (
+          next.sp.changes.map((c, i) => (
+            <li key={i}>
+              <span className="inline-block font-semibold bg-neutral-100 px-1.5 py-0.5 rounded mr-2">
+                {positionMap[c.positionId]?.abbreviation ?? "?"}
+              </span>
+              <span className="text-red-700">UT:</span>{" "}
+              {playerMap[c.outPlayerId] ?? "?"}{" "}
+              <span className="text-neutral-400">→</span>{" "}
+              <span className="text-emerald-700">IN:</span>{" "}
+              {playerMap[c.inPlayerId] ?? "?"}
+            </li>
+          ))
+        )}
+      </ul>
+
+      {later.length > 0 ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-neutral-600 hover:underline"
+          >
+            {expanded
+              ? "▾ Dölj senare byten"
+              : `▸ Visa ${later.length} senare byten`}
+          </button>
+          {expanded ? (
+            <ul className="mt-2 space-y-1 text-xs text-neutral-700">
+              {later.map(({ sp, i }) => (
+                <li key={i}>
+                  <span className="font-mono bg-neutral-50 px-1 rounded">
+                    {sp.minuteInPeriod}&apos;
+                  </span>{" "}
+                  {sp.changes
+                    .map(
+                      (c) =>
+                        `${positionMap[c.positionId]?.abbreviation ?? "?"}: ${
+                          playerMap[c.outPlayerId] ?? "?"
+                        } → ${playerMap[c.inPlayerId] ?? "?"}`
+                    )
+                    .join(" · ")}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SubModal({
   changes,
   positionMap,
@@ -558,9 +730,6 @@ function SubModal({
       <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full">
         <div className="text-center mb-6">
           <div className="text-3xl font-bold">BYTE!</div>
-          <div className="text-sm text-neutral-300 mt-1">
-            Ropa ut till laget — tryck knappen när bytet är genomfört.
-          </div>
         </div>
 
         <div className="space-y-4 mb-8">
@@ -569,9 +738,11 @@ function SubModal({
               key={i}
               className="rounded-lg bg-neutral-900 border border-neutral-700 p-4"
             >
-              <div className="text-xs text-neutral-400 uppercase tracking-wide mb-1">
+              <div className="text-2xl md:text-3xl font-bold text-amber-300 mb-2">
                 {positionMap[c.positionId]?.abbreviation ?? "?"}{" "}
-                {positionMap[c.positionId]?.name}
+                <span className="text-neutral-400 font-normal text-lg">
+                  {positionMap[c.positionId]?.name}
+                </span>
               </div>
               <div className="flex items-center justify-between text-xl md:text-2xl font-semibold">
                 <div>
@@ -599,14 +770,148 @@ function SubModal({
   );
 }
 
+function AdHocBenchModal({
+  positionId,
+  outPlayerId,
+  positionMap,
+  playerMap,
+  benchIds,
+  schedule,
+  onClose,
+  onPick,
+}: {
+  positionId: number;
+  outPlayerId: number;
+  positionMap: Record<number, { name: string; abbreviation: string }>;
+  playerMap: Record<number, string>;
+  benchIds: number[];
+  schedule: Schedule;
+  onClose: () => void;
+  onPick: (inPlayerId: number) => void;
+}) {
+  // We need to know per bench player: can they play this pos?; prefers?;
+  // scheduled minutes. These aren't directly on schedule; infer from the
+  // generated schedule's per-player minutes (as a proxy) and from whether
+  // they appear with this positionId anywhere.
+  const prefersPos = (pid: number): boolean => {
+    for (const per of schedule.periods) {
+      for (const slot of per.startLineup) {
+        if (slot.playerId === pid && slot.positionId === positionId) return true;
+      }
+      for (const sp of per.subPoints) {
+        for (const c of sp.changes) {
+          if (c.inPlayerId === pid && c.positionId === positionId) return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  const scheduledMins = (pid: number): number => schedule.perPlayerMinutes?.[pid] ?? 0;
+
+  const sorted = benchIds
+    .slice()
+    .sort((a, b) => {
+      const pa = prefersPos(a) ? 1 : 0;
+      const pb = prefersPos(b) ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return scheduledMins(a) - scheduledMins(b);
+    });
+
+  const pos = positionMap[positionId];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full md:max-w-md rounded-t-lg md:rounded-lg shadow-xl max-h-[90vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div>
+            <div className="text-xs text-neutral-500 uppercase tracking-wide">
+              Byt in på {pos?.abbreviation} ({pos?.name})
+            </div>
+            <div className="font-semibold">
+              UT: {playerMap[outPlayerId] ?? "?"}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-neutral-500 hover:text-neutral-900 text-xl leading-none"
+            aria-label="Avbryt"
+          >
+            ×
+          </button>
+        </div>
+        <div className="p-2">
+          {sorted.length === 0 ? (
+            <div className="p-4 text-sm text-neutral-600 text-center">
+              Ingen på bänken.
+            </div>
+          ) : (
+            <ul>
+              {sorted.map((id) => {
+                const prefers = prefersPos(id);
+                const mins = scheduledMins(id);
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => onPick(id)}
+                      className="w-full flex items-center justify-between px-3 py-3 rounded-md hover:bg-neutral-50 text-left"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {playerMap[id] ?? "?"}{" "}
+                          {prefers ? (
+                            <span className="text-xs text-emerald-700 ml-1">
+                              · kan spela här
+                            </span>
+                          ) : (
+                            <span className="text-xs text-amber-600 ml-1">
+                              · ovanlig pos
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-neutral-500">
+                          {mins} min i schema
+                        </div>
+                      </div>
+                      <div className="text-primary font-semibold">IN →</div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <div className="px-4 py-3 border-t border-border flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 px-4 rounded-md text-neutral-700 text-sm"
+          >
+            Avbryt
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Pitch({
   lineup,
   positionMap,
   playerMap,
+  onTap,
 }: {
   lineup: { positionId: number; playerId: number }[];
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
+  onTap?: (positionId: number) => void;
 }) {
   const count = lineup.length;
   const sorted = [...lineup].sort((a, b) => a.positionId - b.positionId);
@@ -627,21 +932,39 @@ function Pitch({
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border border-white/60 rounded-full" />
 
       {placed.map(({ row, col, slot }) => {
-        const rowTop = ((row + 0.5) / rows.length) * 100;
+        // Flip vertically so row 0 (MV) lands at the bottom (home side).
+        const rowTop = (1 - (row + 0.5) / rows.length) * 100;
         const colCount = rows[row];
         const colLeft = ((col + 0.5) / colCount) * 100;
-        return (
-          <div
-            key={slot.positionId}
-            className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
-            style={{ top: `${rowTop}%`, left: `${colLeft}%` }}
-          >
+        const isButton = !!onTap;
+        const content = (
+          <>
             <div className="w-12 h-12 rounded-full bg-white text-emerald-900 font-bold text-sm flex items-center justify-center shadow">
               {positionMap[slot.positionId]?.abbreviation ?? "?"}
             </div>
             <div className="text-xs text-white font-medium mt-1 max-w-[96px] truncate px-1 bg-black/40 rounded">
               {playerMap[slot.playerId] ?? "?"}
             </div>
+          </>
+        );
+        return (
+          <div
+            key={slot.positionId}
+            className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
+            style={{ top: `${rowTop}%`, left: `${colLeft}%` }}
+          >
+            {isButton ? (
+              <button
+                type="button"
+                onClick={() => onTap!(slot.positionId)}
+                className="flex flex-col items-center focus:outline-none focus:ring-2 focus:ring-white rounded"
+                aria-label={`Byt spelare på ${positionMap[slot.positionId]?.abbreviation ?? "?"}`}
+              >
+                {content}
+              </button>
+            ) : (
+              <div className="flex flex-col items-center">{content}</div>
+            )}
           </div>
         );
       })}

@@ -97,16 +97,20 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
             p.playablePositionIds.includes(posId)
         );
         if (candidates.length === 0) continue;
-        const picked = weightedPick(rng, candidates, (p) => {
+        // If any bench player has this GK position as "preferred", pick from
+        // that set. Otherwise fall back to everyone eligible.
+        const preferredPool = candidates.filter((p) =>
+          p.preferredPositionIds.includes(posId)
+        );
+        const pool = preferredPool.length > 0 ? preferredPool : candidates;
+        const picked = weightedPick(rng, pool, (p) => {
           const totalMins = minutesSoFar[p.id] ?? 0;
           const gkMins = gkMinutesByPlayer[p.id] ?? 0;
-          // Strongly prefer players who haven't been GK yet + have low minutes.
-          const gkPenalty = gkMins > 0 ? 0.1 : 1;
+          // Prefer players who haven't been GK yet + have low minutes. Less
+          // harsh when we're already within the preferred pool.
+          const gkPenalty = gkMins > 0 ? 0.4 : 1;
           const base = 10 + Math.max(0, 30 - totalMins);
-          const preferBonus = p.preferredPositionIds.includes(posId)
-            ? PREFERRED_POSITION_BONUS
-            : 0;
-          return (base + preferBonus) * gkPenalty;
+          return base * gkPenalty;
         });
         if (picked) nextLineup.set(posId, picked.id);
       }
