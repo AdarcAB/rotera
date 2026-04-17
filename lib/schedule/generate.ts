@@ -85,14 +85,24 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
 
     currentLineup = new Map(startLineup.map((s) => [s.positionId, s.playerId]));
 
-    const numSubPoints = randInt(rng, formation.minSubs, formation.maxSubs);
-    const subMinutes = evenlyDistributedMinutes(numSubPoints, formation.minutesPerPeriod);
-
     const benchSize = Math.max(0, players.length - formation.positions.length);
-    const maxChangesPerPoint = Math.max(
-      1,
-      Math.min(3, Math.ceil(benchSize / Math.max(1, numSubPoints)))
+    // Target total spelarbyten for the period. Aim to rotate every bench
+    // player in at least once; cap at the budget (maxSubs × 3).
+    const targetTotalSpelarbyten = Math.min(
+      benchSize,
+      formation.maxSubs * 3
     );
+    // Prefer fewer byten packed with more spelarbyten each (1-3 per byte),
+    // but stay within [minSubs, maxSubs]. More bench → more byten.
+    const numSubPoints = Math.max(
+      formation.minSubs,
+      Math.min(formation.maxSubs, Math.ceil(targetTotalSpelarbyten / 3))
+    );
+    const targetPerPoint = Math.max(
+      1,
+      Math.min(3, Math.ceil(targetTotalSpelarbyten / Math.max(1, numSubPoints)))
+    );
+    const subMinutes = evenlyDistributedMinutes(numSubPoints, formation.minutesPerPeriod);
 
     const subPoints: SubPoint[] = [];
     let lastMinute = 0;
@@ -103,7 +113,7 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
         minutesSoFar[pid] = (minutesSoFar[pid] ?? 0) + delta;
       }
 
-      const targetChanges = randInt(rng, 1, maxChangesPerPoint);
+      const targetChanges = targetPerPoint;
       const changes: ScheduleChange[] = [];
       const usedInPoint = new Set<number>();
       const posOrder = shuffle(rng, formation.positions.map((p) => p.id));
