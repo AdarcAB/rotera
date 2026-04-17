@@ -125,6 +125,7 @@ async function seedFormationsForUser(userId: number) {
         minSubsPerPeriod: f.minSubsPerPeriod,
         maxSubsPerPeriod: f.maxSubsPerPeriod,
         playersOnField: f.playersOnField,
+        isDefault: f.name === "7 mot 7",
       })
       .returning();
     const posRows = f.positions.map((p, i) => ({

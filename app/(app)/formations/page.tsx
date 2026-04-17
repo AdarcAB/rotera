@@ -24,11 +24,11 @@ export default async function FormationsPage() {
         <Card>
           <CardTitle>Ny spelform</CardTitle>
           <form action={createFormation} className="mt-3">
-            <Field>
-              <Label htmlFor="name">Namn</Label>
-              <Input id="name" name="name" required placeholder="Egen 7-manna" />
-            </Field>
             <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <Label htmlFor="name">Namn</Label>
+                <Input id="name" name="name" required placeholder="Egen 7-manna" />
+              </Field>
               <Field>
                 <Label htmlFor="pof">Spelare på plan</Label>
                 <Input
@@ -42,7 +42,7 @@ export default async function FormationsPage() {
                 />
               </Field>
               <Field>
-                <Label htmlFor="np">Antal perioder</Label>
+                <Label htmlFor="np">Perioder</Label>
                 <Input
                   id="np"
                   name="numPeriods"
@@ -90,6 +90,10 @@ export default async function FormationsPage() {
                 />
               </Field>
             </div>
+            <label className="flex items-center gap-2 text-sm mb-3">
+              <input type="checkbox" name="isDefault" className="w-4 h-4" />
+              <span>Förvald (visas förifyllt när du skapar en match)</span>
+            </label>
             <Button type="submit">Skapa</Button>
           </form>
         </Card>
@@ -106,7 +110,14 @@ export default async function FormationsPage() {
                   className="py-2 flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-medium">{f.name}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {f.name}
+                      {f.isDefault ? (
+                        <span className="text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded">
+                          Förvald
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="text-xs text-neutral-600">
                       {f.playersOnField} spelare · {f.numPeriods}×
                       {f.minutesPerPeriod} min · {f.minSubsPerPeriod}-

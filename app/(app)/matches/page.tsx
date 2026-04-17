@@ -31,6 +31,7 @@ export default async function MatchesPage() {
   const canCreate = teamList.length > 0 && formationList.length > 0;
   const teamNameById = new Map(teamList.map((t) => [t.id, t.name]));
   const teamNameFor = (id: number) => teamNameById.get(id) ?? "Lag";
+  const defaultFormationId = formationList.find((f) => f.isDefault)?.id;
 
   return (
     <div>
@@ -88,11 +89,13 @@ export default async function MatchesPage() {
                     id="formationId"
                     name="formationId"
                     required
+                    defaultValue={defaultFormationId ?? undefined}
                     className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
                   >
                     {formationList.map((f) => (
                       <option key={f.id} value={f.id}>
                         {f.name}
+                        {f.isDefault ? " (förvald)" : ""}
                       </option>
                     ))}
                   </select>

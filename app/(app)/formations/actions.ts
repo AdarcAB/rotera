@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -15,6 +15,10 @@ const FormationInput = z.object({
   minutesPerPeriod: z.coerce.number().int().min(1).max(90),
   minSubsPerPeriod: z.coerce.number().int().min(0).max(10),
   maxSubsPerPeriod: z.coerce.number().int().min(0).max(10),
+  isDefault: z
+    .union([z.literal("on"), z.literal("true"), z.literal("false"), z.literal("")])
+    .optional()
+    .transform((v) => v === "on" || v === "true"),
 });
 
 export async function createFormation(formData: FormData) {
@@ -28,6 +32,15 @@ export async function createFormation(formData: FormData) {
     .insert(formations)
     .values({ userId, ...parsed })
     .returning();
+
+  if (parsed.isDefault) {
+    await db
+      .update(formations)
+      .set({ isDefault: false })
+      .where(
+        and(eq(formations.userId, userId), ne(formations.id, inserted.id))
+      );
+  }
 
   const seed: { name: string; abbreviation: string }[] = [];
   for (let i = 0; i < parsed.playersOnField; i++) {
@@ -76,9 +89,20 @@ export async function updateFormation(formData: FormData) {
       minutesPerPeriod: parsed.minutesPerPeriod,
       minSubsPerPeriod: parsed.minSubsPerPeriod,
       maxSubsPerPeriod: parsed.maxSubsPerPeriod,
+      isDefault: parsed.isDefault,
     })
     .where(eq(formations.id, id));
+
+  if (parsed.isDefault) {
+    await db
+      .update(formations)
+      .set({ isDefault: false })
+      .where(and(eq(formations.userId, userId), ne(formations.id, id)));
+  }
+
   revalidatePath(`/formations/${id}`);
+  revalidatePath("/formations");
+  revalidatePath("/matches");
 }
 
 export async function deleteFormation(formData: FormData) {

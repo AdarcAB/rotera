@@ -56,6 +56,7 @@ export const formations = pgTable("formations", {
   minSubsPerPeriod: integer("min_subs_per_period").notNull(),
   maxSubsPerPeriod: integer("max_subs_per_period").notNull(),
   playersOnField: integer("players_on_field").notNull(),
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

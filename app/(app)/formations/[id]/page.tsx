@@ -46,11 +46,11 @@ export default async function FormationPage({
           <CardTitle>Inställningar</CardTitle>
           <form action={updateFormation} className="mt-3">
             <input type="hidden" name="id" value={f.id} />
-            <Field>
-              <Label htmlFor="name">Namn</Label>
-              <Input id="name" name="name" defaultValue={f.name} required />
-            </Field>
             <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <Label htmlFor="name">Namn</Label>
+                <Input id="name" name="name" defaultValue={f.name} required />
+              </Field>
               <Field>
                 <Label htmlFor="pof">Spelare på plan</Label>
                 <Input
@@ -112,6 +112,15 @@ export default async function FormationPage({
                 />
               </Field>
             </div>
+            <label className="flex items-center gap-2 text-sm mb-3">
+              <input
+                type="checkbox"
+                name="isDefault"
+                defaultChecked={f.isDefault}
+                className="w-4 h-4"
+              />
+              <span>Förvald (visas förifyllt när du skapar en match)</span>
+            </label>
             <Button type="submit">Spara</Button>
           </form>
 
