@@ -133,6 +133,7 @@ async function seedFormationsForUser(userId: number) {
       name: p.name,
       abbreviation: p.abbreviation,
       sortOrder: i,
+      isGoalkeeper: p.isGoalkeeper ?? false,
     }));
     await db.insert(positions).values(posRows);
   }

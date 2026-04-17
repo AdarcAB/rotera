@@ -134,10 +134,16 @@ export async function updatePositions(formData: FormData) {
     const row = existing[i];
     const name = String(formData.get(`name_${row.id}`) ?? "");
     const abbr = String(formData.get(`abbr_${row.id}`) ?? "");
+    const isGk = formData.get(`gk_${row.id}`) === "on";
     const parsed = PositionInput.parse({ name, abbreviation: abbr });
     await db
       .update(positions)
-      .set({ name: parsed.name, abbreviation: parsed.abbreviation, sortOrder: i })
+      .set({
+        name: parsed.name,
+        abbreviation: parsed.abbreviation,
+        sortOrder: i,
+        isGoalkeeper: isGk,
+      })
       .where(eq(positions.id, row.id));
   }
   revalidatePath(`/formations/${formationId}`);

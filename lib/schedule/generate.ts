@@ -64,9 +64,14 @@ function pickLineup(
 
 function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] | null {
   const { formation, players } = input;
+  const goalkeeperPositionIds = new Set(
+    formation.positions.filter((p) => p.isGoalkeeper).map((p) => p.id)
+  );
   const periods: PeriodPlan[] = [];
   const minutesSoFar: Record<number, number> = {};
   for (const p of players) minutesSoFar[p.id] = 0;
+  const gkMinutesByPlayer: Record<number, number> = {};
+  for (const p of players) gkMinutesByPlayer[p.id] = 0;
 
   let currentLineup = new Map<number, number>();
 
@@ -78,12 +83,47 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
       if (!picked) return null;
       startLineup = picked;
     } else {
-      startLineup = Array.from(currentLineup.entries())
+      const nextLineup = new Map(currentLineup);
+      // Between periods — rotate the goalkeeper to someone who hasn't been GK
+      // this match (preferably with low minutes so they don't burn out).
+      for (const posId of goalkeeperPositionIds) {
+        const currentGk = nextLineup.get(posId);
+        if (currentGk === undefined) continue;
+        const onField = new Set(nextLineup.values());
+        const candidates = players.filter(
+          (p) =>
+            p.id !== currentGk &&
+            !onField.has(p.id) &&
+            p.playablePositionIds.includes(posId)
+        );
+        if (candidates.length === 0) continue;
+        const picked = weightedPick(rng, candidates, (p) => {
+          const totalMins = minutesSoFar[p.id] ?? 0;
+          const gkMins = gkMinutesByPlayer[p.id] ?? 0;
+          // Strongly prefer players who haven't been GK yet + have low minutes.
+          const gkPenalty = gkMins > 0 ? 0.1 : 1;
+          const base = 10 + Math.max(0, 30 - totalMins);
+          const preferBonus = p.preferredPositionIds.includes(posId)
+            ? PREFERRED_POSITION_BONUS
+            : 0;
+          return (base + preferBonus) * gkPenalty;
+        });
+        if (picked) nextLineup.set(posId, picked.id);
+      }
+      startLineup = Array.from(nextLineup.entries())
         .map(([positionId, playerId]) => ({ positionId, playerId }))
         .sort((a, b) => a.positionId - b.positionId);
     }
 
     currentLineup = new Map(startLineup.map((s) => [s.positionId, s.playerId]));
+    // Record goalkeeper minutes for the starting period (full period if no
+    // within-period GK subs — which is our policy).
+    for (const [posId, playerId] of currentLineup.entries()) {
+      if (goalkeeperPositionIds.has(posId)) {
+        gkMinutesByPlayer[playerId] =
+          (gkMinutesByPlayer[playerId] ?? 0) + formation.minutesPerPeriod;
+      }
+    }
 
     const benchSize = Math.max(0, players.length - formation.positions.length);
     // Target total spelarbyten for the period. Aim to rotate every bench
@@ -120,6 +160,8 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
 
       for (const posId of posOrder) {
         if (changes.length >= targetChanges) break;
+        // Goalkeeper is never subbed within a period.
+        if (goalkeeperPositionIds.has(posId)) continue;
         const outPlayerId = currentLineup.get(posId);
         if (outPlayerId === undefined || usedInPoint.has(outPlayerId)) continue;
 

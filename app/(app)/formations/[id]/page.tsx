@@ -142,9 +142,19 @@ export default async function FormationPage({
           </p>
           <form action={updatePositions} className="mt-3">
             <input type="hidden" name="formationId" value={f.id} />
+            <div className="grid grid-cols-[1fr_80px_48px] gap-2 mb-1 text-[11px] uppercase tracking-wide text-neutral-500">
+              <div>Namn</div>
+              <div>Fk</div>
+              <div className="text-center" title="Målvakt (byts normalt bara mellan perioder)">
+                MV
+              </div>
+            </div>
             <div className="space-y-2">
               {posList.map((p) => (
-                <div key={p.id} className="grid grid-cols-[1fr_80px] gap-2">
+                <div
+                  key={p.id}
+                  className="grid grid-cols-[1fr_80px_48px] gap-2 items-center"
+                >
                   <Input
                     name={`name_${p.id}`}
                     defaultValue={p.name}
@@ -158,9 +168,22 @@ export default async function FormationPage({
                     maxLength={6}
                     required
                   />
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      name={`gk_${p.id}`}
+                      defaultChecked={p.isGoalkeeper}
+                      className="w-4 h-4"
+                      title="Markera som målvakt"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
+            <p className="text-xs text-neutral-600 mt-2">
+              Målvakt byts i princip aldrig under pågående period — däremot ofta
+              mellan perioder.
+            </p>
             <Button type="submit" className="mt-3">
               Spara positioner
             </Button>

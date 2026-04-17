@@ -66,6 +66,7 @@ export const positions = pgTable("positions", {
   name: text("name").notNull(),
   abbreviation: text("abbreviation").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  isGoalkeeper: boolean("is_goalkeeper").notNull().default(false),
 });
 
 export const matches = pgTable("matches", {

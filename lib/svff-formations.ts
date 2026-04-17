@@ -5,7 +5,7 @@ export type SvffFormationSeed = {
   minSubsPerPeriod: number;
   maxSubsPerPeriod: number;
   playersOnField: number;
-  positions: { name: string; abbreviation: string }[];
+  positions: { name: string; abbreviation: string; isGoalkeeper?: boolean }[];
 };
 
 export const SVFF_FORMATIONS: SvffFormationSeed[] = [
@@ -30,7 +30,7 @@ export const SVFF_FORMATIONS: SvffFormationSeed[] = [
     maxSubsPerPeriod: 2,
     playersOnField: 5,
     positions: [
-      { name: "Målvakt", abbreviation: "MV" },
+      { name: "Målvakt", abbreviation: "MV", isGoalkeeper: true },
       { name: "Vänsterback", abbreviation: "VB" },
       { name: "Högerback", abbreviation: "HB" },
       { name: "Vänsterforward", abbreviation: "VF" },
@@ -45,7 +45,7 @@ export const SVFF_FORMATIONS: SvffFormationSeed[] = [
     maxSubsPerPeriod: 3,
     playersOnField: 7,
     positions: [
-      { name: "Målvakt", abbreviation: "MV" },
+      { name: "Målvakt", abbreviation: "MV", isGoalkeeper: true },
       { name: "Vänsterback", abbreviation: "VB" },
       { name: "Högerback", abbreviation: "HB" },
       { name: "Vänster mittfältare", abbreviation: "VM" },
@@ -62,7 +62,7 @@ export const SVFF_FORMATIONS: SvffFormationSeed[] = [
     maxSubsPerPeriod: 4,
     playersOnField: 9,
     positions: [
-      { name: "Målvakt", abbreviation: "MV" },
+      { name: "Målvakt", abbreviation: "MV", isGoalkeeper: true },
       { name: "Vänsterback", abbreviation: "VB" },
       { name: "Mittback", abbreviation: "MB" },
       { name: "Högerback", abbreviation: "HB" },

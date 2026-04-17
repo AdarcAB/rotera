@@ -9,6 +9,7 @@ export type SchedulePosition = {
   id: number;
   name: string;
   abbreviation: string;
+  isGoalkeeper?: boolean;
 };
 
 export type ScheduleInput = {

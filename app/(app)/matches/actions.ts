@@ -345,6 +345,7 @@ export async function generateScheduleAction(formData: FormData) {
         id: p.id,
         name: p.name,
         abbreviation: p.abbreviation,
+        isGoalkeeper: p.isGoalkeeper,
       })),
     },
     players: mps.map((mp) => ({
