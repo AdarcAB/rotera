@@ -71,16 +71,23 @@ function buildCurrentLineup(
   // start from period start lineup
   for (const slot of period.startLineup) lineup.set(slot.positionId, slot.playerId);
 
-  // apply completed scheduled sub points
   const sortedSubs = [...period.subPoints].sort(
     (a, b) => a.minuteInPeriod - b.minuteInPeriod
   );
-  const completedInPeriod = (live.completedSubPoints ?? [])
-    .filter((c) => c.periodIndex === live.currentPeriodIndex)
-    .map((c) => c.subPointIndex);
+  const completedInPeriod = (live.completedSubPoints ?? []).filter(
+    (c) => c.periodIndex === live.currentPeriodIndex
+  );
   for (let i = 0; i < sortedSubs.length; i++) {
-    if (completedInPeriod.includes(i)) {
-      for (const c of sortedSubs[i].changes) lineup.set(c.positionId, c.inPlayerId);
+    const completion = completedInPeriod.find((c) => c.subPointIndex === i);
+    if (!completion) continue;
+    for (const c of sortedSubs[i].changes) {
+      if (
+        completion.appliedPositionIds !== undefined &&
+        !completion.appliedPositionIds.includes(c.positionId)
+      ) {
+        continue;
+      }
+      lineup.set(c.positionId, c.inPlayerId);
     }
   }
 
@@ -235,6 +242,7 @@ export function LiveMatch({
         const key = {
           periodIndex: live.currentPeriodIndex,
           subPointIndex: nextSub.index,
+          appliedPositionIds: [] as number[],
         };
         if (
           !live.completedSubPoints.some(
@@ -338,9 +346,13 @@ export function LiveMatch({
     saveLive(next);
   };
 
-  const handleCompleteSub = () => {
+  const handleCompleteSub = (appliedPositionIds: number[]) => {
     if (!nextSub) return;
-    const key = { periodIndex: live.currentPeriodIndex, subPointIndex: nextSub.index };
+    const key = {
+      periodIndex: live.currentPeriodIndex,
+      subPointIndex: nextSub.index,
+      appliedPositionIds,
+    };
     const next: LiveState = {
       ...live,
       completedSubPoints: [...live.completedSubPoints, key],
@@ -624,7 +636,9 @@ function RunningView({
       <div className="rounded-lg border border-border bg-white p-4 mb-3">
         <div className="flex items-center justify-between mb-2">
           <div className="font-semibold">På plan</div>
-          <div className="text-xs text-neutral-500">Tryck på en spelare för byte</div>
+          <div className="text-xs text-neutral-500">
+            Tryck på en spelare för ad hoc-byte
+          </div>
         </div>
         <Pitch
           lineup={Array.from(currentLineup.entries()).map(([positionId, playerId]) => ({
@@ -825,9 +839,29 @@ function SubModal({
   }[];
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
-  onComplete: () => void;
+  onComplete: (appliedPositionIds: number[]) => void;
 }) {
   const anyRewired = changes.some((c) => c.rewired);
+  const [checkedPositionIds, setCheckedPositionIds] = useState<Set<number>>(
+    () => new Set(changes.map((c) => c.positionId))
+  );
+
+  const toggle = (posId: number) => {
+    setCheckedPositionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(posId)) next.delete(posId);
+      else next.add(posId);
+      return next;
+    });
+  };
+
+  const applyLabel =
+    checkedPositionIds.size === changes.length
+      ? "✅ Byte genomfört"
+      : checkedPositionIds.size === 0
+        ? "Hoppa över alla"
+        : `✅ Genomför ${checkedPositionIds.size} av ${changes.length}`;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex flex-col text-white p-6 overflow-auto">
       <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full">
@@ -841,43 +875,60 @@ function SubModal({
         </div>
 
         <div className="space-y-4 mb-8">
-          {changes.map((c, i) => (
-            <div
-              key={i}
-              className="rounded-lg bg-neutral-900 border border-neutral-700 p-4"
-            >
-              <div className="text-2xl md:text-3xl font-bold text-amber-300 mb-2">
-                {positionMap[c.positionId]?.abbreviation ?? "?"}{" "}
-                <span className="text-neutral-400 font-normal text-lg">
-                  {positionMap[c.positionId]?.name}
-                </span>
-                {c.rewired ? (
-                  <span className="ml-2 text-xs align-middle text-amber-400 font-normal">
-                    · justerat
+          {changes.map((c) => {
+            const checked = checkedPositionIds.has(c.positionId);
+            return (
+              <label
+                key={c.positionId}
+                className={`block rounded-lg border p-4 cursor-pointer transition ${
+                  checked
+                    ? "bg-neutral-900 border-neutral-700"
+                    : "bg-neutral-950 border-neutral-800 opacity-60"
+                }`}
+              >
+                <div className="flex items-center justify-center text-2xl md:text-3xl font-bold text-amber-300 mb-2 text-center">
+                  {positionMap[c.positionId]?.abbreviation ?? "?"}{" "}
+                  <span className="text-neutral-400 font-normal text-lg ml-2">
+                    {positionMap[c.positionId]?.name}
                   </span>
-                ) : null}
-              </div>
-              <div className="flex items-center justify-between text-xl md:text-2xl font-semibold">
-                <div>
-                  <span className="text-red-400">UT:</span>{" "}
-                  {playerMap[c.outPlayerId] ?? "?"}
+                  {c.rewired ? (
+                    <span className="ml-2 text-xs align-middle text-amber-400 font-normal">
+                      · justerat
+                    </span>
+                  ) : null}
                 </div>
-                <div className="text-neutral-600">→</div>
-                <div>
-                  <span className="text-emerald-400">IN:</span>{" "}
-                  {playerMap[c.inPlayerId] ?? "?"}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 flex items-center justify-between text-xl md:text-2xl font-semibold">
+                    <div>
+                      <span className="text-red-400">UT:</span>{" "}
+                      {playerMap[c.outPlayerId] ?? "?"}
+                    </div>
+                    <div className="text-neutral-600">→</div>
+                    <div>
+                      <span className="text-emerald-400">IN:</span>{" "}
+                      {playerMap[c.inPlayerId] ?? "?"}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(c.positionId)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-8 h-8 shrink-0 accent-emerald-500"
+                    aria-label={`Genomför byte på ${positionMap[c.positionId]?.abbreviation}`}
+                  />
                 </div>
-              </div>
-            </div>
-          ))}
+              </label>
+            );
+          })}
         </div>
       </div>
 
       <button
-        onClick={onComplete}
+        onClick={() => onComplete(Array.from(checkedPositionIds))}
         className="sticky bottom-0 h-20 w-full bg-primary text-primary-foreground text-2xl font-semibold rounded-lg"
       >
-        ✅ Byte genomfört
+        {applyLabel}
       </button>
     </div>
   );

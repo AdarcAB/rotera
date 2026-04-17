@@ -111,11 +111,21 @@ export type AdHocSub = {
   inPlayerId: number;
 };
 
+export type CompletedSubPoint = {
+  periodIndex: number;
+  subPointIndex: number;
+  /**
+   * Subset of position IDs from the subPoint whose changes were actually
+   * applied. Omit to mean "all changes applied" (backwards compat).
+   */
+  appliedPositionIds?: number[];
+};
+
 export type LiveState = {
   status: "pre_period" | "running" | "paused" | "finished";
   currentPeriodIndex: number;
   resumedAt: string | null;
   elapsedBeforePause: number;
-  completedSubPoints: { periodIndex: number; subPointIndex: number }[];
+  completedSubPoints: CompletedSubPoint[];
   adHocSubs?: AdHocSub[];
 };

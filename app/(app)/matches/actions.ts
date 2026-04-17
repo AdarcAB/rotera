@@ -416,7 +416,20 @@ export async function finishMatch(formData: FormData) {
   const match = await assertOwned(matchId, userId);
 
   const schedule = match.generatedScheduleJson as
-    | { perPlayerMinutes: Record<string, number> }
+    | {
+        perPlayerMinutes: Record<string, number>;
+        periods: {
+          index: number;
+          subPoints: {
+            minuteInPeriod: number;
+            changes: {
+              positionId: number;
+              outPlayerId: number;
+              inPlayerId: number;
+            }[];
+          }[];
+        }[];
+      }
     | null;
   if (schedule) {
     const formation = await db
@@ -436,10 +449,18 @@ export async function finishMatch(formData: FormData) {
             outPlayerId: number;
             inPlayerId: number;
           }[];
+          completedSubPoints?: {
+            periodIndex: number;
+            subPointIndex: number;
+            appliedPositionIds?: number[];
+          }[];
         }
       | null;
     const adHocs = liveState?.adHocSubs ?? [];
+    const completed = liveState?.completedSubPoints ?? [];
     const mpp = formation.minutesPerPeriod;
+
+    // Ad hoc: out loses remaining, in gains remaining.
     for (const sub of adHocs) {
       const remaining = Math.max(0, mpp - sub.minuteInPeriod);
       const outKey = String(sub.outPlayerId);
@@ -447,6 +468,32 @@ export async function finishMatch(formData: FormData) {
       perPlayer[outKey] = (perPlayer[outKey] ?? 0) - remaining;
       perPlayer[inKey] = (perPlayer[inKey] ?? 0) + remaining;
     }
+
+    // Skipped scheduled changes: the schedule assumed they happened, but
+    // they didn't. Reverse the assumption → out stays on, in stays off.
+    for (const period of schedule.periods) {
+      const sortedSubs = [...period.subPoints].sort(
+        (a, b) => a.minuteInPeriod - b.minuteInPeriod
+      );
+      for (let i = 0; i < sortedSubs.length; i++) {
+        const sp = sortedSubs[i];
+        const completion = completed.find(
+          (c) => c.periodIndex === period.index && c.subPointIndex === i
+        );
+        if (!completion || completion.appliedPositionIds === undefined) continue;
+        const applied = new Set(completion.appliedPositionIds);
+        for (const c of sp.changes) {
+          if (applied.has(c.positionId)) continue;
+          const remaining = Math.max(0, mpp - sp.minuteInPeriod);
+          const outKey = String(c.outPlayerId);
+          const inKey = String(c.inPlayerId);
+          // out stayed on field → gains remaining; in stayed off → loses remaining
+          perPlayer[outKey] = (perPlayer[outKey] ?? 0) + remaining;
+          perPlayer[inKey] = (perPlayer[inKey] ?? 0) - remaining;
+        }
+      }
+    }
+
     for (const [mpIdStr, mins] of Object.entries(perPlayer)) {
       const mpId = Number(mpIdStr);
       if (!Number.isFinite(mpId)) continue;
