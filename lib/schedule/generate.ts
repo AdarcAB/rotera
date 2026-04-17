@@ -85,8 +85,14 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
 
     currentLineup = new Map(startLineup.map((s) => [s.positionId, s.playerId]));
 
-    const totalChanges = randInt(rng, formation.minSubs, formation.maxSubs);
-    const subMinutes = evenlyDistributedMinutes(totalChanges, formation.minutesPerPeriod);
+    const numSubPoints = randInt(rng, formation.minSubs, formation.maxSubs);
+    const subMinutes = evenlyDistributedMinutes(numSubPoints, formation.minutesPerPeriod);
+
+    const benchSize = Math.max(0, players.length - formation.positions.length);
+    const maxChangesPerPoint = Math.max(
+      1,
+      Math.min(3, Math.ceil(benchSize / Math.max(1, numSubPoints)))
+    );
 
     const subPoints: SubPoint[] = [];
     let lastMinute = 0;
@@ -97,15 +103,20 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
         minutesSoFar[pid] = (minutesSoFar[pid] ?? 0) + delta;
       }
 
+      const targetChanges = randInt(rng, 1, maxChangesPerPoint);
+      const changes: ScheduleChange[] = [];
+      const usedInPoint = new Set<number>();
       const posOrder = shuffle(rng, formation.positions.map((p) => p.id));
-      let chosenChange: ScheduleChange | null = null;
 
       for (const posId of posOrder) {
+        if (changes.length >= targetChanges) break;
         const outPlayerId = currentLineup.get(posId);
-        if (outPlayerId === undefined) continue;
+        if (outPlayerId === undefined || usedInPoint.has(outPlayerId)) continue;
 
         const onFieldIds = new Set(currentLineup.values());
-        const bench = players.filter((p) => !onFieldIds.has(p.id));
+        const bench = players.filter(
+          (p) => !onFieldIds.has(p.id) && !usedInPoint.has(p.id)
+        );
         const fit = bench.filter((p) => p.playablePositionIds.includes(posId));
         if (fit.length === 0) continue;
 
@@ -119,16 +130,13 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
         });
         if (!inPlayer) continue;
 
-        chosenChange = { positionId: posId, outPlayerId, inPlayerId: inPlayer.id };
+        changes.push({ positionId: posId, outPlayerId, inPlayerId: inPlayer.id });
+        usedInPoint.add(outPlayerId);
+        usedInPoint.add(inPlayer.id);
         currentLineup.set(posId, inPlayer.id);
-        break;
       }
 
-      subPoints.push({
-        minuteInPeriod: m,
-        changes: chosenChange ? [chosenChange] : [],
-      });
-
+      subPoints.push({ minuteInPeriod: m, changes });
       lastMinute = m;
     }
 

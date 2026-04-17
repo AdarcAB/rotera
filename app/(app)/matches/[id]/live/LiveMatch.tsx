@@ -404,7 +404,7 @@ function PrePeriodView({
           {sortedSubs.length > 0 ? (
             <span className="text-neutral-500 font-normal">
               {" "}
-              · {sortedSubs.reduce((n, sp) => n + sp.changes.length, 0)} st
+              · {sortedSubs.length} st
             </span>
           ) : null}
         </div>
@@ -416,10 +416,14 @@ function PrePeriodView({
               <span
                 key={i}
                 className="px-2 py-1 rounded-md bg-neutral-100"
-                title={sp.changes.length > 1 ? `${sp.changes.length} byten samtidigt` : undefined}
+                title={
+                  sp.changes.length > 1
+                    ? `${sp.changes.length} spelarbyten samtidigt`
+                    : undefined
+                }
               >
                 {sp.minuteInPeriod}&apos;
-                {sp.changes.length > 1 ? ` (×${sp.changes.length})` : ""}
+                {sp.changes.length > 1 ? ` (${sp.changes.length} spelare)` : ""}
               </span>
             ))}
           </div>

@@ -100,17 +100,11 @@ export function validateSchedule(
       }
     }
 
-    const totalChanges = period.subPoints.reduce(
-      (n, sp) => n + sp.changes.length,
-      0
-    );
-    if (
-      totalChanges < formation.minSubs ||
-      totalChanges > formation.maxSubs
-    ) {
+    const subCount = period.subPoints.length;
+    if (subCount < formation.minSubs || subCount > formation.maxSubs) {
       issues.push({
         kind: "sub_count",
-        detail: `Period ${period.index}: ${totalChanges} byten, måste vara [${formation.minSubs}, ${formation.maxSubs}]`,
+        detail: `Period ${period.index}: ${subCount} byten, måste vara [${formation.minSubs}, ${formation.maxSubs}]`,
       });
     }
 
