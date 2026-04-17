@@ -85,8 +85,8 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
 
     currentLineup = new Map(startLineup.map((s) => [s.positionId, s.playerId]));
 
-    const numSubPoints = randInt(rng, formation.minSubs, formation.maxSubs);
-    const subMinutes = evenlyDistributedMinutes(numSubPoints, formation.minutesPerPeriod);
+    const totalChanges = randInt(rng, formation.minSubs, formation.maxSubs);
+    const subMinutes = evenlyDistributedMinutes(totalChanges, formation.minutesPerPeriod);
 
     const subPoints: SubPoint[] = [];
     let lastMinute = 0;
@@ -97,26 +97,21 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
         minutesSoFar[pid] = (minutesSoFar[pid] ?? 0) + delta;
       }
 
-      const changes: ScheduleChange[] = [];
-      const usedInPoint = new Set<number>();
-      const numChanges = Math.max(1, randInt(rng, 1, Math.min(3, formation.positions.length)));
-
       const posOrder = shuffle(rng, formation.positions.map((p) => p.id));
-      let done = 0;
+      let chosenChange: ScheduleChange | null = null;
 
       for (const posId of posOrder) {
-        if (done >= numChanges) break;
         const outPlayerId = currentLineup.get(posId);
-        if (outPlayerId === undefined || usedInPoint.has(outPlayerId)) continue;
+        if (outPlayerId === undefined) continue;
 
         const onFieldIds = new Set(currentLineup.values());
-        const bench = players.filter((p) => !onFieldIds.has(p.id) && !usedInPoint.has(p.id));
+        const bench = players.filter((p) => !onFieldIds.has(p.id));
         const fit = bench.filter((p) => p.playablePositionIds.includes(posId));
         if (fit.length === 0) continue;
 
         const inPlayer = weightedPick(rng, fit, (p) => {
-          const m = minutesSoFar[p.id] ?? 0;
-          const base = 5 + Math.max(0, 40 - m);
+          const mins = minutesSoFar[p.id] ?? 0;
+          const base = 5 + Math.max(0, 40 - mins);
           const preferBonus = p.preferredPositionIds.includes(posId)
             ? PREFERRED_POSITION_BONUS
             : 0;
@@ -124,18 +119,15 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
         });
         if (!inPlayer) continue;
 
-        changes.push({ positionId: posId, outPlayerId, inPlayerId: inPlayer.id });
-        usedInPoint.add(outPlayerId);
-        usedInPoint.add(inPlayer.id);
+        chosenChange = { positionId: posId, outPlayerId, inPlayerId: inPlayer.id };
         currentLineup.set(posId, inPlayer.id);
-        done += 1;
+        break;
       }
 
-      if (changes.length === 0) {
-        subPoints.push({ minuteInPeriod: m, changes: [] });
-      } else {
-        subPoints.push({ minuteInPeriod: m, changes });
-      }
+      subPoints.push({
+        minuteInPeriod: m,
+        changes: chosenChange ? [chosenChange] : [],
+      });
 
       lastMinute = m;
     }

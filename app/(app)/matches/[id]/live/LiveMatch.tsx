@@ -399,7 +399,15 @@ function PrePeriodView({
       </div>
 
       <div className="rounded-lg border border-border bg-white p-4 mb-6">
-        <div className="font-semibold mb-2">Bytespunkter i perioden</div>
+        <div className="font-semibold mb-2">
+          Byten i perioden
+          {sortedSubs.length > 0 ? (
+            <span className="text-neutral-500 font-normal">
+              {" "}
+              · {sortedSubs.reduce((n, sp) => n + sp.changes.length, 0)} st
+            </span>
+          ) : null}
+        </div>
         {sortedSubs.length === 0 ? (
           <div className="text-sm text-neutral-600">Inga planerade byten.</div>
         ) : (
@@ -408,8 +416,10 @@ function PrePeriodView({
               <span
                 key={i}
                 className="px-2 py-1 rounded-md bg-neutral-100"
+                title={sp.changes.length > 1 ? `${sp.changes.length} byten samtidigt` : undefined}
               >
-                {sp.minuteInPeriod}&apos; ({sp.changes.length} byten)
+                {sp.minuteInPeriod}&apos;
+                {sp.changes.length > 1 ? ` (×${sp.changes.length})` : ""}
               </span>
             ))}
           </div>
