@@ -3,9 +3,14 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
 
-export default async function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
   const session = await getSession();
   if (session) redirect("/dashboard");
+  const sp = await searchParams;
 
   return (
     <div className="flex-1 flex flex-col bg-white">
@@ -23,6 +28,12 @@ export default async function LandingPage() {
       </header>
 
       <main className="flex-1">
+        {sp.deleted ? (
+          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-3 text-sm text-emerald-900 text-center">
+            Ditt konto och all din data är raderad. Tack för att du testade
+            Rotera.
+          </div>
+        ) : null}
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full border-2 border-dashed border-emerald-200/70" />

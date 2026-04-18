@@ -65,13 +65,16 @@ export default async function AppLayout({
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-sm text-neutral-600">
+            <Link
+              href="/konto"
+              className="hidden sm:inline text-sm text-neutral-700 hover:underline"
+            >
               {user.email}
-            </span>
+            </Link>
             <form action="/logout" method="post">
               <button
                 type="submit"
-                className="text-sm text-neutral-600 hover:underline"
+                className="text-sm text-neutral-700 hover:underline"
               >
                 Logga ut
               </button>
