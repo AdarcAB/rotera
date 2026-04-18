@@ -137,17 +137,24 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
 
     const benchSize = Math.max(0, players.length - formation.positions.length);
     // Target total spelarbyten — rotate each bench player in at least once,
-    // capped by budget (maxSubs × 3). When bench is 0 we still respect minSubs.
+    // capped by budget (maxSubs × 3).
     const targetTotalSpelarbyten = Math.min(
       benchSize,
       formation.maxSubs * 3
     );
-    // Use max byten when we actually need sub points — spreads the byten
-    // across the period and reduces long stretches where one player sits.
+    // Dynamic: use the fewest byten events that fit the target (each byte
+    // can pack up to 3 spelarbyten). More bench → more byten; but prefer
+    // fewer events when possible. Always within [minSubs, maxSubs].
     const numSubPoints =
       targetTotalSpelarbyten === 0
         ? formation.minSubs
-        : formation.maxSubs;
+        : Math.max(
+            formation.minSubs,
+            Math.min(
+              formation.maxSubs,
+              Math.ceil(targetTotalSpelarbyten / 3)
+            )
+          );
     const targetPerPoint = Math.max(
       1,
       Math.min(3, Math.ceil(targetTotalSpelarbyten / Math.max(1, numSubPoints)))
