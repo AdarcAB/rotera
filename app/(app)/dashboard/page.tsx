@@ -4,6 +4,7 @@ import { requireUserId } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, teams, players } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
+import { InstallAppHint } from "@/components/InstallAppHint";
 
 export default async function Dashboard() {
   const userId = await requireUserId();
@@ -29,6 +30,8 @@ export default async function Dashboard() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Översikt</h1>
+
+      <InstallAppHint />
 
       {teamRows.length === 0 ? (
         <Card className="mb-6">
