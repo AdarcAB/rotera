@@ -121,14 +121,20 @@ summary.clean {
 .dark :is(.bg-red-50, .bg-red-50\/30) {
   background-color: #451010 !important;
 }
-.dark :is(.text-red-900) {
+.dark :is(.text-red-900, .text-red-800, .text-red-700, .text-red-600) {
   color: #fca5a5 !important;
+}
+.dark :is(.bg-red-100) {
+  background-color: #4f1313 !important;
 }
 .dark :is(.bg-emerald-50, .bg-emerald-50\/70) {
   background-color: #07331c !important;
 }
-.dark :is(.text-emerald-900, .text-emerald-800) {
+.dark :is(.text-emerald-900, .text-emerald-800, .text-emerald-700) {
   color: #86efac !important;
+}
+.dark :is(.bg-emerald-100) {
+  background-color: #0d4022 !important;
 }
 .dark :is(.bg-amber-50, .bg-amber-50\/30) {
   background-color: #3a2c08 !important;
@@ -139,6 +145,18 @@ summary.clean {
 .dark :is(.bg-sky-50, .bg-sky-50\/70) {
   background-color: #0c2742 !important;
 }
-.dark :is(.text-sky-900) {
+.dark :is(.text-sky-900, .text-sky-800, .text-sky-700, .text-sky-950) {
   color: #7dd3fc !important;
+}
+.dark :is(.bg-sky-100) {
+  background-color: #133859 !important;
+}
+.dark :is(.border-sky-200) {
+  border-color: #1e4b78 !important;
+}
+.dark :is(.border-emerald-200) {
+  border-color: #115a33 !important;
+}
+.dark :is(.border-amber-200) {
+  border-color: #5c4217 !important;
 }
