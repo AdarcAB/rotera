@@ -21,6 +21,7 @@ import {
 } from "../actions";
 import type { Schedule } from "@/lib/schedule/types";
 import { PlayersSection } from "@/components/PlayersSection";
+import { EditStartLineupButton } from "@/components/EditStartLineupButton";
 
 export default async function MatchPage({
   params,
@@ -205,6 +206,24 @@ export default async function MatchPage({
             positions={posList}
             mps={mps}
             nameOf={nameOf}
+            editStartButton={
+              <EditStartLineupButton
+                matchId={match.id}
+                positions={posList.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  abbreviation: p.abbreviation,
+                  isGoalkeeper: p.isGoalkeeper,
+                }))}
+                players={mps.map((mp) => ({
+                  id: mp.id,
+                  name: nameOf(mp),
+                  playablePositionIds: mp.playablePositionIds ?? [],
+                  preferredPositionIds: mp.preferredPositionIds ?? [],
+                }))}
+                initialLineup={schedule.periods[0]?.startLineup ?? []}
+              />
+            }
           />
         )}
       </Card>
@@ -237,11 +256,19 @@ function ScheduleView({
   positions,
   mps,
   nameOf,
+  editStartButton,
 }: {
   schedule: Schedule;
-  positions: { id: number; name: string; abbreviation: string; sortOrder: number }[];
+  positions: {
+    id: number;
+    name: string;
+    abbreviation: string;
+    sortOrder: number;
+    isGoalkeeper: boolean;
+  }[];
   mps: MpLike[];
   nameOf: (mp: MpLike) => string;
+  editStartButton?: React.ReactNode;
 }) {
   const posNameMap = new Map(positions.map((p) => [p.id, p.abbreviation]));
   const nameByMpId = new Map(mps.map((mp) => [mp.id, nameOf(mp)]));
@@ -280,7 +307,10 @@ function ScheduleView({
           key={period.index}
           className="border border-border rounded-md p-3"
         >
-          <div className="font-semibold mb-2">Period {period.index + 1}</div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="font-semibold">Period {period.index + 1}</div>
+            {period.index === 0 && editStartButton ? editStartButton : null}
+          </div>
           <div className="text-sm text-neutral-700 mb-2">
             <strong>Start:</strong>{" "}
             {period.startLineup

@@ -22,6 +22,12 @@ export type ScheduleInput = {
   };
   players: SchedulePlayer[];
   seed?: number;
+  /**
+   * Optional: if provided, period 0's start lineup is fixed to these
+   * assignments instead of being picked by the algorithm. The rest of the
+   * match (period 0 subs, periods 1..N) is generated freely around it.
+   */
+  fixedStartLineup?: { positionId: number; playerId: number }[];
 };
 
 export type ScheduleChange = {

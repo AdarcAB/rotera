@@ -381,6 +381,105 @@ export async function generateScheduleAction(formData: FormData) {
   redirect(`/matches/${matchId}?genOk=1`);
 }
 
+export async function regenerateScheduleWithStart(
+  matchId: number,
+  fixedStartLineup: { positionId: number; playerId: number }[]
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const match = await assertOwned(matchId, userId);
+
+  const pre = await computeSchedulePrereqs(matchId);
+  if (!pre.ok) {
+    return { ok: false, error: pre.reasons.join("\n") };
+  }
+
+  const formation = await db
+    .select()
+    .from(formations)
+    .where(eq(formations.id, match.formationId))
+    .limit(1)
+    .then((r) => r[0]);
+  const positionList = await db
+    .select()
+    .from(positions)
+    .where(eq(positions.formationId, match.formationId))
+    .orderBy(asc(positions.sortOrder));
+  const mps = await db
+    .select()
+    .from(matchPlayers)
+    .where(eq(matchPlayers.matchId, matchId));
+
+  if (fixedStartLineup.length !== positionList.length) {
+    return { ok: false, error: "Alla positioner måste vara fyllda." };
+  }
+  const posIds = new Set(positionList.map((p) => p.id));
+  const mpIds = new Set(mps.map((mp) => mp.id));
+  const seenPlayers = new Set<number>();
+  const seenPositions = new Set<number>();
+  for (const slot of fixedStartLineup) {
+    if (!posIds.has(slot.positionId))
+      return { ok: false, error: "Okänd position i uppställningen." };
+    if (seenPositions.has(slot.positionId))
+      return { ok: false, error: "Samma position tilldelad två gånger." };
+    seenPositions.add(slot.positionId);
+    if (!mpIds.has(slot.playerId))
+      return { ok: false, error: "Spelare är inte kallad till matchen." };
+    if (seenPlayers.has(slot.playerId))
+      return { ok: false, error: "Samma spelare på flera positioner." };
+    seenPlayers.add(slot.playerId);
+  }
+
+  const plist = await db
+    .select()
+    .from(players)
+    .where(eq(players.teamId, match.teamId));
+  const nameOf = (mp: (typeof mps)[number]) => {
+    if (mp.isGuest) return mp.guestName ?? "Gäst";
+    const p = plist.find((p) => p.id === mp.playerId);
+    return p?.name ?? "Okänd";
+  };
+
+  const input: ScheduleInput = {
+    formation: {
+      numPeriods: formation.numPeriods,
+      minutesPerPeriod: formation.minutesPerPeriod,
+      minSubs: formation.minSubsPerPeriod,
+      maxSubs: formation.maxSubsPerPeriod,
+      positions: positionList.map((p) => ({
+        id: p.id,
+        name: p.name,
+        abbreviation: p.abbreviation,
+        isGoalkeeper: p.isGoalkeeper,
+      })),
+    },
+    players: mps.map((mp) => ({
+      id: mp.id,
+      name: nameOf(mp),
+      playablePositionIds: mp.playablePositionIds ?? [],
+      preferredPositionIds: mp.preferredPositionIds ?? [],
+    })),
+    seed: Date.now() & 0x7fffffff,
+    fixedStartLineup,
+  };
+
+  const schedule = generateSchedule(input);
+  if (!schedule) {
+    return {
+      ok: false,
+      error:
+        "Optimeraren hittade inget giltigt schema med den uppsättningen. Prova en annan eller klicka Regenerera utan fixering.",
+    };
+  }
+
+  await db
+    .update(matches)
+    .set({ generatedScheduleJson: schedule, status: "scheduled" })
+    .where(eq(matches.id, matchId));
+
+  revalidatePath(`/matches/${matchId}`);
+  return { ok: true };
+}
+
 export async function startLive(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));

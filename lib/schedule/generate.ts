@@ -102,12 +102,26 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
     let startLineup: { positionId: number; playerId: number }[];
 
     if (pi === 0) {
-      const picked = pickLineup(players, formation.positions, minutesSoFar, rng, {
-        gkPositionIds: goalkeeperPositionIds,
-        gkMinutesByPlayer,
-      });
-      if (!picked) return null;
-      startLineup = picked;
+      if (
+        input.fixedStartLineup &&
+        input.fixedStartLineup.length === formation.positions.length
+      ) {
+        const used = new Set<number>();
+        for (const slot of input.fixedStartLineup) {
+          if (used.has(slot.playerId)) return null;
+          used.add(slot.playerId);
+        }
+        startLineup = [...input.fixedStartLineup].sort(
+          (a, b) => a.positionId - b.positionId
+        );
+      } else {
+        const picked = pickLineup(players, formation.positions, minutesSoFar, rng, {
+          gkPositionIds: goalkeeperPositionIds,
+          gkMinutesByPlayer,
+        });
+        if (!picked) return null;
+        startLineup = picked;
+      }
     } else {
       // Between periods — rebuild lineup from scratch, strongly weighted by
       // low minutes so far. The GK position specifically excludes whoever was
