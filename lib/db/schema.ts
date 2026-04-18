@@ -36,6 +36,7 @@ export const authTokens = pgTable("auth_tokens", {
 export const orgTeams = pgTable("org_teams", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  sport: text("sport").notNull().default("fotboll"),
   createdByUserId: integer("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),

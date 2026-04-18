@@ -116,9 +116,24 @@ export async function findOrCreateUserByEmail(
       .values({ email: normalized })
       .returning();
     userId = inserted.id;
+    // Create default org for new user (football as default sport; this
+    // seeds SvFF formations). Picking a different sport is a future
+    // onboarding question.
+    const [org] = await db
+      .insert(orgTeams)
+      .values({
+        name: `${normalized.split("@")[0]}s organisation`,
+        sport: "fotboll",
+        createdByUserId: userId,
+      })
+      .returning();
+    await db
+      .insert(orgMembers)
+      .values({ orgTeamId: org.id, userId })
+      .onConflictDoNothing();
     await seedFormationsForUser(userId);
   }
-  // Resolve any pending team invites to this email into actual memberships.
+  // Resolve any pending invites to this email into actual memberships.
   await resolveInvitesForEmail(userId, normalized);
   return { userId, normalizedEmail: normalized };
 }
