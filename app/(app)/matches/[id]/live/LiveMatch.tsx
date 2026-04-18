@@ -226,6 +226,7 @@ export function LiveMatch({
   const countdownBeepedRef = useRef<Set<string>>(new Set());
   const [, startSave] = useTransition();
   const [adHocOpenFor, setAdHocOpenFor] = useState<number | null>(null);
+  const [forceOpenSub, setForceOpenSub] = useState(false);
 
   useEffect(() => {
     if (live.status !== "running") return;
@@ -530,6 +531,7 @@ export function LiveMatch({
     };
     setLive(next);
     saveLive(next);
+    setForceOpenSub(false);
   };
 
   const allPlayerIds = Object.keys(playerMap).map((k) => Number(k));
@@ -544,9 +546,9 @@ export function LiveMatch({
   const showSubModal =
     live.status === "running" &&
     nextSub !== null &&
-    secondsUntilNextSub !== null &&
-    secondsUntilNextSub <= 0 &&
-    effectiveNextChanges.length > 0;
+    effectiveNextChanges.length > 0 &&
+    (forceOpenSub ||
+      (secondsUntilNextSub !== null && secondsUntilNextSub <= 0));
 
   const performAdHocSub = (positionId: number, inPlayerId: number) => {
     const outPlayerId = currentLineup.get(positionId);
@@ -606,10 +608,12 @@ export function LiveMatch({
           playerMap={playerMap}
           schedule={schedule}
           minutesByPlayer={minutesByPlayer}
+          canForceNextSub={effectiveNextChanges.length > 0 && !forceOpenSub}
           onPause={handlePause}
           onResume={handleResume}
           onJumpToBreak={handleJumpToBreak}
           onTapFieldPlayer={(posId) => setAdHocOpenFor(posId)}
+          onDoSubNow={() => setForceOpenSub(true)}
         />
       )}
 
@@ -791,10 +795,12 @@ function RunningView({
   playerMap,
   schedule,
   minutesByPlayer,
+  canForceNextSub,
   onPause,
   onResume,
   onJumpToBreak,
   onTapFieldPlayer,
+  onDoSubNow,
 }: {
   live: LiveState;
   elapsedSec: number;
@@ -808,10 +814,12 @@ function RunningView({
   playerMap: Record<number, string>;
   schedule: Schedule;
   minutesByPlayer: Record<number, number>;
+  canForceNextSub: boolean;
   onPause: () => void;
   onResume: () => void;
   onJumpToBreak: () => void;
   onTapFieldPlayer: (positionId: number) => void;
+  onDoSubNow: () => void;
 }) {
   return (
     <div>
@@ -864,6 +872,8 @@ function RunningView({
         positionMap={positionMap}
         playerMap={playerMap}
         currentLineup={currentLineup}
+        canForceNext={canForceNextSub}
+        onDoSubNow={onDoSubNow}
       />
 
       <div className="rounded-lg border border-border bg-white p-3 mb-4">
@@ -911,12 +921,16 @@ function UpcomingSubsPreview({
   positionMap,
   playerMap,
   currentLineup,
+  canForceNext,
+  onDoSubNow,
 }: {
   live: LiveState;
   schedule: Schedule;
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
   currentLineup: LineupState;
+  canForceNext: boolean;
+  onDoSubNow: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const period = schedule.periods[live.currentPeriodIndex];
@@ -959,8 +973,20 @@ function UpcomingSubsPreview({
 
   return (
     <div className="rounded-lg border border-border bg-white p-3 mb-3">
-      <div className="text-sm text-neutral-700 uppercase tracking-wide mb-1 font-medium">
-        Nästa byte
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="text-sm text-neutral-700 uppercase tracking-wide font-medium">
+          Nästa byte
+        </div>
+        {canForceNext ? (
+          <button
+            type="button"
+            onClick={onDoSubNow}
+            className="inline-flex items-center h-9 px-3 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            title="Öppna byte-modalen nu — t.ex. om bollen är avblåst eller målvakten har bollen"
+          >
+            Gör nu
+          </button>
+        ) : null}
       </div>
       <div className="mb-1 font-semibold text-base">
         {next.sp.minuteInPeriod}&apos;
