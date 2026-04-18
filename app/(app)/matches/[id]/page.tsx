@@ -141,17 +141,38 @@ export default async function MatchPage({
       </div>
 
       <Card>
-        <CardTitle>Spelare</CardTitle>
-        <PlayersSection
-          matchId={match.id}
-          teamPlayers={teamPlayers}
-          positions={posList.map((p) => ({
-            id: p.id,
-            name: p.name,
-            abbreviation: p.abbreviation,
-          }))}
-          initialMatchPlayers={initialMatchPlayers}
-        />
+        <details open={!schedule}>
+          <summary className="clean cursor-pointer flex items-center gap-2 select-none">
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="currentColor"
+              className="chevron-toggle transition-transform text-neutral-500"
+              aria-hidden="true"
+            >
+              <path d="M8 5l8 7-8 7V5z" />
+            </svg>
+            <CardTitle>Spelare</CardTitle>
+            {schedule ? (
+              <span className="text-sm text-neutral-500 ml-2">
+                ({initialMatchPlayers.length} kallade)
+              </span>
+            ) : null}
+          </summary>
+          <div className="mt-3">
+            <PlayersSection
+              matchId={match.id}
+              teamPlayers={teamPlayers}
+              positions={posList.map((p) => ({
+                id: p.id,
+                name: p.name,
+                abbreviation: p.abbreviation,
+              }))}
+              initialMatchPlayers={initialMatchPlayers}
+            />
+          </div>
+        </details>
       </Card>
 
       <Card className="mt-6">

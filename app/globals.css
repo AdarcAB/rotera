@@ -44,3 +44,14 @@ body {
     font-size: 16px;
   }
 }
+
+/* Rotate chevron markers in <details>/<summary> disclosure widgets. */
+details[open] .chevron-toggle {
+  transform: rotate(90deg);
+}
+summary.clean::-webkit-details-marker {
+  display: none;
+}
+summary.clean {
+  list-style: none;
+}
