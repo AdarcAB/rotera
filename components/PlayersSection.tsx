@@ -73,6 +73,43 @@ export function PlayersSection({
     }
   };
 
+  const calledCount = teamPlayers.reduce(
+    (n, p) => (mpByPlayer.has(p.id) ? n + 1 : n),
+    0
+  );
+  const allCalled = teamPlayers.length > 0 && calledCount === teamPlayers.length;
+
+  const selectAll = () => {
+    if (teamPlayers.length === 0) return;
+    if (allCalled) {
+      // Uncheck all
+      const toRemove = teamPlayers
+        .map((p) => mpByPlayer.get(p.id))
+        .filter((mp): mp is MatchPlayerRow => !!mp);
+      setMps((prev) =>
+        prev.filter((mp) => !toRemove.some((r) => r.id === mp.id))
+      );
+      startTransition(() => {
+        Promise.all(
+          teamPlayers.map((p) =>
+            togglePlayerCalledAction(matchId, p.id, false).catch(() => null)
+          )
+        );
+      });
+      return;
+    }
+    const toAdd = teamPlayers.filter((p) => !mpByPlayer.has(p.id));
+    startTransition(async () => {
+      const created = await Promise.all(
+        toAdd.map((p) =>
+          togglePlayerCalledAction(matchId, p.id, true).catch(() => null)
+        )
+      );
+      const ok = created.filter((c): c is MatchPlayerRow => !!c);
+      if (ok.length > 0) setMps((prev) => [...prev, ...ok]);
+    });
+  };
+
   const updatePositions = (
     mpId: number,
     playable: number[],
@@ -126,9 +163,20 @@ export function PlayersSection({
 
   return (
     <>
-      <div className="text-xs text-neutral-600 mb-3">
-        Bocka i spelarna som deltar. Klicka på "Positioner" för att finjustera
-        spelbara och önskade positioner. Ändringar sparas automatiskt.
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div className="text-xs text-neutral-600">
+          Bocka i spelarna som deltar. Klicka på "Positioner" för att finjustera
+          spelbara och önskade positioner. Ändringar sparas automatiskt.
+        </div>
+        {teamPlayers.length > 0 ? (
+          <button
+            type="button"
+            onClick={selectAll}
+            className="text-xs h-7 px-2 rounded-md border border-border bg-white hover:bg-neutral-50 whitespace-nowrap"
+          >
+            {allCalled ? "Avmarkera alla" : `Välj alla (${teamPlayers.length})`}
+          </button>
+        ) : null}
       </div>
 
       <table className="w-full text-sm">
