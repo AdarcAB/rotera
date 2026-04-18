@@ -31,6 +31,16 @@ function evenlyDistributedMinutes(count: number, total: number): number[] {
 }
 
 const PREFERRED_POSITION_BONUS = 25;
+const SEASON_DEFICIT_WEIGHT = 0.25;
+const SEASON_BONUS_CAP = 15;
+
+function seasonDeficitBonus(score: number | undefined): number {
+  if (score === undefined) return 0;
+  const raw = (100 - score) * SEASON_DEFICIT_WEIGHT;
+  if (raw > SEASON_BONUS_CAP) return SEASON_BONUS_CAP;
+  if (raw < -SEASON_BONUS_CAP) return -SEASON_BONUS_CAP;
+  return raw;
+}
 
 function pickLineup(
   players: ScheduleInput["players"],
@@ -71,12 +81,12 @@ function pickLineup(
     if (eligible.length === 0) return null;
     const picked = weightedPick(rng, eligible, (p) => {
       const m = minutesSoFar[p.id] ?? 0;
-      // Strong low-minutes bias (base higher for low-minute players).
       const base = 5 + Math.max(0, 50 - m * 1.5);
       const preferBonus = p.preferredPositionIds.includes(posId)
         ? PREFERRED_POSITION_BONUS
         : 0;
-      return base + preferBonus;
+      const deficit = seasonDeficitBonus(p.seasonFairScore);
+      return Math.max(0.1, base + preferBonus + deficit);
     });
     if (!picked) return null;
     used.add(picked.id);
@@ -219,7 +229,8 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
           const preferBonus = p.preferredPositionIds.includes(posId)
             ? PREFERRED_POSITION_BONUS
             : 0;
-          return base + preferBonus;
+          const deficit = seasonDeficitBonus(p.seasonFairScore);
+          return Math.max(0.1, base + preferBonus + deficit);
         });
         if (!inPlayer) continue;
 

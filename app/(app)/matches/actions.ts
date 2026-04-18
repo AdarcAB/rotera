@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -18,6 +18,75 @@ import { generateSchedule } from "@/lib/schedule/generate";
 import type { ScheduleInput } from "@/lib/schedule/types";
 import { capitalizeName } from "@/lib/utils";
 import { assertTeamAccessible } from "@/lib/auth";
+import { fairScore, optimalMinutes } from "@/lib/stats";
+
+/**
+ * For each player in the team, compute the average fair score across prior
+ * finished matches (excluding the match being generated). Used by the
+ * generator to nudge underplayed kids to more time.
+ */
+async function computeSeasonFairScoresForTeam(
+  teamId: number,
+  excludeMatchId: number
+): Promise<Map<number, number>> {
+  const finished = await db
+    .select()
+    .from(matches)
+    .where(and(eq(matches.teamId, teamId), eq(matches.status, "finished")));
+  const priorMatches = finished.filter((m) => m.id !== excludeMatchId);
+  if (priorMatches.length === 0) return new Map();
+
+  const formIds = Array.from(new Set(priorMatches.map((m) => m.formationId)));
+  const formRows = await db
+    .select()
+    .from(formations)
+    .where(inArray(formations.id, formIds));
+  const formMap = new Map(formRows.map((f) => [f.id, f]));
+
+  const mpRows = await db
+    .select()
+    .from(matchPlayers)
+    .where(
+      inArray(
+        matchPlayers.matchId,
+        priorMatches.map((m) => m.id)
+      )
+    );
+  const mpByMatch = new Map<number, typeof mpRows>();
+  for (const mp of mpRows) {
+    const arr = mpByMatch.get(mp.matchId) ?? [];
+    arr.push(mp);
+    mpByMatch.set(mp.matchId, arr);
+  }
+
+  const agg = new Map<number, { sum: number; n: number }>();
+  for (const m of priorMatches) {
+    const form = formMap.get(m.formationId);
+    if (!form) continue;
+    const roster = mpByMatch.get(m.id) ?? [];
+    if (roster.length === 0) continue;
+    const optimal = optimalMinutes({
+      minutesPerPeriod: form.minutesPerPeriod,
+      numPeriods: form.numPeriods,
+      playersOnField: form.playersOnField,
+      troupSize: roster.length,
+    });
+    for (const mp of roster) {
+      if (mp.playerId === null) continue;
+      const s = fairScore(mp.actualMinutesPlayed, optimal);
+      const cur = agg.get(mp.playerId) ?? { sum: 0, n: 0 };
+      cur.sum += s;
+      cur.n += 1;
+      agg.set(mp.playerId, cur);
+    }
+  }
+
+  const avg = new Map<number, number>();
+  for (const [pid, { sum, n }] of agg.entries()) {
+    if (n > 0) avg.set(pid, sum / n);
+  }
+  return avg;
+}
 
 const MatchInput = z.object({
   opponent: z.string().trim().min(1).max(80),
@@ -337,6 +406,10 @@ export async function generateScheduleAction(formData: FormData) {
     const p = plist.find((p) => p.id === mp.playerId);
     return p?.name ?? "Okänd";
   };
+  const seasonScores = await computeSeasonFairScoresForTeam(
+    match.teamId,
+    matchId
+  );
 
   const input: ScheduleInput = {
     formation: {
@@ -356,6 +429,8 @@ export async function generateScheduleAction(formData: FormData) {
       name: nameOf(mp),
       playablePositionIds: mp.playablePositionIds ?? [],
       preferredPositionIds: mp.preferredPositionIds ?? [],
+      seasonFairScore:
+        mp.playerId !== null ? seasonScores.get(mp.playerId) : undefined,
     })),
     seed: Date.now() & 0x7fffffff,
   };
@@ -438,6 +513,10 @@ export async function regenerateScheduleWithStart(
     const p = plist.find((p) => p.id === mp.playerId);
     return p?.name ?? "Okänd";
   };
+  const seasonScores = await computeSeasonFairScoresForTeam(
+    match.teamId,
+    matchId
+  );
 
   const input: ScheduleInput = {
     formation: {
@@ -457,6 +536,8 @@ export async function regenerateScheduleWithStart(
       name: nameOf(mp),
       playablePositionIds: mp.playablePositionIds ?? [],
       preferredPositionIds: mp.preferredPositionIds ?? [],
+      seasonFairScore:
+        mp.playerId !== null ? seasonScores.get(mp.playerId) : undefined,
     })),
     seed: Date.now() & 0x7fffffff,
     fixedStartLineup,

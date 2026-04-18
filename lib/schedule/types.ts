@@ -3,6 +3,12 @@ export type SchedulePlayer = {
   name: string;
   playablePositionIds: number[];
   preferredPositionIds: number[];
+  /**
+   * Optional: average "fair score" from prior finished matches this season.
+   * 100 = on target. <100 = underplayed, >100 = overplayed. Used to nudge
+   * the generator toward giving underplayed kids slightly more time.
+   */
+  seasonFairScore?: number;
 };
 
 export type SchedulePosition = {
