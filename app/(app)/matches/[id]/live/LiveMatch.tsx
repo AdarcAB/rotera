@@ -704,11 +704,16 @@ function PrePeriodView({
 
   return (
     <div>
-      <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+      <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">
         Period {periodIndex + 1} av {numPeriods}
       </h1>
-      <p className="text-neutral-600 mb-4">
-        Tryck på knappen när domaren blåser igång.
+
+      <Button size="xl" className="w-full bg-primary mb-2" onClick={onStart}>
+        <PlayIcon className="w-6 h-6 mr-2" />
+        Starta period {periodIndex + 1}
+      </Button>
+      <p className="text-xs text-neutral-500 mb-5 text-center">
+        Tryck när domaren blåser igång.
       </p>
 
       <div className="rounded-lg border border-border bg-white p-4 mb-4">
@@ -769,11 +774,6 @@ function PrePeriodView({
           </div>
         )}
       </div>
-
-      <Button size="xl" className="w-full bg-primary" onClick={onStart}>
-        <PlayIcon className="w-6 h-6 mr-2" />
-        Starta period {periodIndex + 1}
-      </Button>
     </div>
   );
 }
