@@ -1,18 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createLoginToken } from "@/lib/auth";
+import { consumeOtp, createLoginToken, setSession } from "@/lib/auth";
 import { sendMagicLinkEmail } from "@/lib/email";
 
 export async function requestLoginLink(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   let sent: "resend" | "console";
+  let normalized: string;
   try {
-    const token = await createLoginToken(email);
+    const { token, otp, normalizedEmail } = await createLoginToken(email);
+    normalized = normalizedEmail;
     const base = process.env.APP_URL ?? "http://localhost:3000";
     const url = `${base}/login/verify?token=${token}`;
 
-    const result = await sendMagicLinkEmail({ to: email, url });
+    const result = await sendMagicLinkEmail({ to: normalizedEmail, url, otp });
     if (!result.ok) {
       redirect(
         `/login?error=${encodeURIComponent("Kunde inte skicka mejl: " + result.error)}`
@@ -24,5 +26,22 @@ export async function requestLoginLink(formData: FormData) {
     const msg = e instanceof Error ? e.message : "Kunde inte skapa login-länk";
     redirect(`/login?error=${encodeURIComponent(msg)}`);
   }
-  redirect(`/login?sent=${sent}`);
+  redirect(
+    `/login?sent=${sent}&email=${encodeURIComponent(normalized)}`
+  );
+}
+
+export async function verifyOtp(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim();
+  const otp = String(formData.get("otp") ?? "").trim();
+  const userId = await consumeOtp(email, otp);
+  if (!userId) {
+    redirect(
+      `/login?sent=resend&email=${encodeURIComponent(email)}&otpError=${encodeURIComponent(
+        "Ogiltig eller förbrukad kod."
+      )}`
+    );
+  }
+  await setSession(userId);
+  redirect("/dashboard");
 }

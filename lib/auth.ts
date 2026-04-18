@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "./db/client";
 import { users, authTokens } from "./db/schema";
 
@@ -78,7 +78,15 @@ export function generateToken(): string {
   return crypto.randomBytes(32).toString("base64url");
 }
 
-export async function createLoginToken(email: string): Promise<string> {
+export function generateOtp(): string {
+  // 6-digit numeric. Pad with zeros; avoid bias by rejecting high range.
+  const n = crypto.randomInt(0, 1_000_000);
+  return n.toString().padStart(6, "0");
+}
+
+export async function createLoginToken(
+  email: string
+): Promise<{ token: string; otp: string; normalizedEmail: string }> {
   const normalized = email.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
     throw new Error("Ogiltig e-postadress");
@@ -95,10 +103,11 @@ export async function createLoginToken(email: string): Promise<string> {
   }
 
   const token = generateToken();
+  const otp = generateOtp();
   const expires = new Date(Date.now() + 30 * 60 * 1000);
-  await db.insert(authTokens).values({ userId, token, expiresAt: expires });
+  await db.insert(authTokens).values({ userId, token, otp, expiresAt: expires });
 
-  return token;
+  return { token, otp, normalizedEmail: normalized };
 }
 
 export async function consumeLoginToken(token: string): Promise<number | null> {
@@ -108,6 +117,38 @@ export async function consumeLoginToken(token: string): Promise<number | null> {
   if (row.usedAt) return null;
   if (row.expiresAt.getTime() < Date.now()) return null;
   await db.update(authTokens).set({ usedAt: new Date() }).where(eq(authTokens.id, row.id));
+  return row.userId;
+}
+
+export async function consumeOtp(
+  email: string,
+  otp: string
+): Promise<number | null> {
+  const normalized = email.trim().toLowerCase();
+  const cleanOtp = otp.replace(/\D/g, "");
+  if (cleanOtp.length !== 6) return null;
+  const userRows = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, normalized))
+    .limit(1);
+  if (userRows.length === 0) return null;
+  const user = userRows[0];
+  const rows = await db
+    .select()
+    .from(authTokens)
+    .where(
+      and(eq(authTokens.userId, user.id), eq(authTokens.otp, cleanOtp))
+    )
+    .limit(1);
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  if (row.usedAt) return null;
+  if (row.expiresAt.getTime() < Date.now()) return null;
+  await db
+    .update(authTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(authTokens.id, row.id));
   return row.userId;
 }
 

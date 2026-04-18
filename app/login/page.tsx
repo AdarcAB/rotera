@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { requestLoginLink } from "./actions";
+import { requestLoginLink, verifyOtp } from "./actions";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: "resend" | "console"; error?: string }>;
+  searchParams: Promise<{
+    sent?: "resend" | "console";
+    email?: string;
+    error?: string;
+    otpError?: string;
+  }>;
 }) {
   const sp = await searchParams;
   return (
@@ -23,8 +28,8 @@ export default async function LoginPage({
 
         {sp.sent === "resend" ? (
           <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900 mb-4">
-            Mejl skickat! Kolla inkorgen (och skräpposten). Länken gäller i 30
-            minuter.
+            Mejl skickat till <strong>{sp.email}</strong>. Klicka länken i
+            mejlet — <em>eller</em> fyll i koden nedan.
           </div>
         ) : null}
 
@@ -51,12 +56,52 @@ export default async function LoginPage({
               required
               autoComplete="email"
               placeholder="du@exempel.se"
+              defaultValue={sp.email}
             />
           </Field>
           <Button type="submit" size="lg" className="w-full">
-            Skicka magic-link
+            {sp.sent ? "Skicka ny länk och kod" : "Skicka länk + kod"}
           </Button>
         </form>
+
+        {sp.sent && sp.email ? (
+          <div className="mt-6 pt-6 border-t border-border">
+            <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+              Eller fyll i koden
+            </div>
+
+            {sp.otpError ? (
+              <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-900 mb-3">
+                {sp.otpError}
+              </div>
+            ) : null}
+
+            <form action={verifyOtp}>
+              <input type="hidden" name="email" value={sp.email} />
+              <Field>
+                <Label htmlFor="otp">Kod från mejlet</Label>
+                <Input
+                  id="otp"
+                  name="otp"
+                  inputMode="numeric"
+                  pattern="[0-9 ]{6,7}"
+                  maxLength={7}
+                  autoComplete="one-time-code"
+                  placeholder="123 456"
+                  className="font-mono text-lg tracking-widest text-center"
+                  required
+                  autoFocus
+                />
+              </Field>
+              <Button type="submit" size="lg" className="w-full">
+                Logga in
+              </Button>
+            </form>
+            <p className="text-xs text-neutral-500 mt-3">
+              Säkrare än att klicka en länk — du ser att du är på rätt sida.
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );
