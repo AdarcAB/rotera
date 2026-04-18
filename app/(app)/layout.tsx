@@ -107,11 +107,12 @@ export default async function AppLayout({
           <div className="flex items-center gap-3">
             <Link
               href="/konto"
-              className="hidden sm:inline text-sm text-neutral-700 hover:underline"
+              title={user.email}
+              className="hidden md:inline text-sm text-neutral-700 hover:underline"
             >
-              {user.email}
+              Konto
             </Link>
-            <form action="/logout" method="post">
+            <form action="/logout" method="post" className="hidden md:block">
               <button
                 type="submit"
                 className="text-sm text-neutral-700 hover:underline"
@@ -122,11 +123,37 @@ export default async function AppLayout({
           </div>
         </header>
 
-        <nav className="md:hidden px-4 py-2 border-b border-border bg-white flex gap-4 text-sm overflow-x-auto">
+        <nav className="md:hidden px-4 py-2 border-b border-border bg-white flex items-center gap-4 text-sm overflow-x-auto whitespace-nowrap">
           <Link href="/dashboard">Översikt</Link>
           <Link href="/teams">Lag</Link>
           <Link href="/formations">Spelformer</Link>
           <Link href="/matches">Matcher</Link>
+          <Link href="/konto">Konto</Link>
+          <form action="/logout" method="post">
+            <button type="submit" className="text-neutral-700 hover:underline">
+              Logga ut
+            </button>
+          </form>
+          {activeOrg ? (
+            <Link
+              href="/orgs"
+              className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800"
+              title="Byt organisation eller hantera"
+            >
+              <span className="truncate max-w-[120px]">{activeOrg.name}</span>
+              {orgIds.length > 1 ? (
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M7 10l5 5 5-5H7z" />
+                </svg>
+              ) : null}
+            </Link>
+          ) : null}
         </nav>
       </div>
 
