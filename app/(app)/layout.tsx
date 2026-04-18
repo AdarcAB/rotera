@@ -59,16 +59,32 @@ export default async function AppLayout({
             <span className="ml-2 underline">Gå till live →</span>
           </Link>
         ) : null}
-        <header className="px-4 md:px-6 py-3 border-b border-border bg-white flex items-center justify-between">
-          <div className="flex items-center gap-4 md:gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2">
+        <header className="px-4 md:px-6 py-3 border-b border-border bg-white flex items-center justify-between gap-3">
+          <div className="flex items-center gap-4 md:gap-6 min-w-0">
+            <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
               <Logo size={28} />
               <span className="font-bold">Rotera</span>
             </Link>
+            <nav className="hidden md:flex items-center gap-4 text-sm">
+              <Link href="/dashboard" className="hover:underline">
+                Översikt
+              </Link>
+              <Link href="/teams" className="hover:underline">
+                Lag
+              </Link>
+              <Link href="/formations" className="hover:underline">
+                Spelformer
+              </Link>
+              <Link href="/matches" className="hover:underline">
+                Matcher
+              </Link>
+            </nav>
+          </div>
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
             {activeOrg ? (
               <Link
                 href="/orgs"
-                className="hidden md:flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-800 max-w-[200px]"
+                className="flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-800 max-w-[140px] md:max-w-[200px]"
                 title={
                   orgIds.length > 1
                     ? "Byt organisation eller hantera"
@@ -89,37 +105,13 @@ export default async function AppLayout({
                 ) : null}
               </Link>
             ) : null}
-            <nav className="hidden md:flex items-center gap-4 text-sm">
-              <Link href="/dashboard" className="hover:underline">
-                Översikt
-              </Link>
-              <Link href="/teams" className="hover:underline">
-                Lag
-              </Link>
-              <Link href="/formations" className="hover:underline">
-                Spelformer
-              </Link>
-              <Link href="/matches" className="hover:underline">
-                Matcher
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
             <Link
               href="/konto"
               title={user.email}
-              className="hidden md:inline text-sm text-neutral-700 hover:underline"
+              className="text-sm text-neutral-700 hover:underline"
             >
               Konto
             </Link>
-            <form action="/logout" method="post" className="hidden md:block">
-              <button
-                type="submit"
-                className="text-sm text-neutral-700 hover:underline"
-              >
-                Logga ut
-              </button>
-            </form>
           </div>
         </header>
 
@@ -128,32 +120,6 @@ export default async function AppLayout({
           <Link href="/teams">Lag</Link>
           <Link href="/formations">Spelformer</Link>
           <Link href="/matches">Matcher</Link>
-          <Link href="/konto">Konto</Link>
-          <form action="/logout" method="post">
-            <button type="submit" className="text-neutral-700 hover:underline">
-              Logga ut
-            </button>
-          </form>
-          {activeOrg ? (
-            <Link
-              href="/orgs"
-              className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800"
-              title="Byt organisation eller hantera"
-            >
-              <span className="truncate max-w-[120px]">{activeOrg.name}</span>
-              {orgIds.length > 1 ? (
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M7 10l5 5 5-5H7z" />
-                </svg>
-              ) : null}
-            </Link>
-          ) : null}
         </nav>
       </div>
 
