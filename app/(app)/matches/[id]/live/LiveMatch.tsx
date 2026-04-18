@@ -5,6 +5,7 @@ import type { Schedule } from "@/lib/schedule/types";
 import { Button } from "@/components/ui/Button";
 import { formatTime } from "@/lib/utils";
 import { persistLiveState, finishMatch } from "./actions";
+import { stopLiveMatch } from "../../actions";
 import type { AdHocSub, LiveState, PlayerMeta } from "./page";
 
 const PRE_SUB_WARN_SECONDS = 10;
@@ -525,6 +526,30 @@ export function LiveMatch({
           onTapFieldPlayer={(posId) => setAdHocOpenFor(posId)}
         />
       )}
+
+      <div className="mt-6 flex justify-center">
+        <form
+          action={stopLiveMatch}
+          onSubmit={(e) => {
+            if (
+              !confirm(
+                "Avbryt matchen? Liveläget avslutas och matchen går tillbaka till 'schemalagt' läge. Inga minuter sparas på spelarna."
+              )
+            ) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="matchId" value={matchId} />
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-white text-sm text-red-700 hover:bg-red-50"
+          >
+            <StopIcon className="w-4 h-4" />
+            Avbryt matchen
+          </button>
+        </form>
+      </div>
 
       {showSubModal && nextSub ? (
         <SubModal
@@ -1344,6 +1369,19 @@ function SkipEndIcon({ className }: { className?: string }) {
     >
       <path d="M5 5.5v13a.75.75 0 0 0 1.16.63l8-5.2V18.5a.75.75 0 0 0 1.5 0v-13a.75.75 0 0 0-1.5 0v4.57l-8-5.2A.75.75 0 0 0 5 5.5Z" />
       <rect x="17.5" y="5" width="2" height="14" rx="0.8" />
+    </svg>
+  );
+}
+
+function StopIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="6" y="6" width="12" height="12" rx="1.5" />
     </svg>
   );
 }

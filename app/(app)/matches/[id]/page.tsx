@@ -115,6 +115,13 @@ export default async function MatchPage({
             >
               🔴 Gå till live
             </Link>
+          ) : match.status === "finished" ? (
+            <Link
+              href={`/matches/${match.id}/summary`}
+              className="inline-flex h-12 px-6 items-center justify-center rounded-md bg-neutral-900 text-white font-medium"
+            >
+              Visa sammanställning
+            </Link>
           ) : schedule ? (
             <form action={startLive}>
               <input type="hidden" name="matchId" value={match.id} />

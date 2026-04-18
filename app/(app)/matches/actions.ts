@@ -410,6 +410,18 @@ export async function saveLiveState(matchId: number, state: unknown) {
     .where(eq(matches.id, matchId));
 }
 
+export async function stopLiveMatch(formData: FormData) {
+  const userId = await requireUserId();
+  const matchId = Number(formData.get("matchId"));
+  await assertOwned(matchId, userId);
+  await db
+    .update(matches)
+    .set({ status: "scheduled", liveStateJson: null })
+    .where(eq(matches.id, matchId));
+  revalidatePath(`/matches/${matchId}`);
+  redirect(`/matches/${matchId}`);
+}
+
 export async function finishMatch(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
