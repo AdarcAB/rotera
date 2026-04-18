@@ -108,14 +108,6 @@ export default async function MatchPage({
         </div>
 
         <div className="flex gap-2">
-          {schedule ? (
-            <form action={startLive}>
-              <input type="hidden" name="matchId" value={match.id} />
-              <Button type="submit" size="lg">
-                ▶ Starta live-läge
-              </Button>
-            </form>
-          ) : null}
           {match.status === "live" ? (
             <Link
               href={`/matches/${match.id}/live`}
@@ -123,6 +115,13 @@ export default async function MatchPage({
             >
               🔴 Gå till live
             </Link>
+          ) : schedule ? (
+            <form action={startLive}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <Button type="submit" size="lg">
+                ▶ Starta live-läge
+              </Button>
+            </form>
           ) : null}
         </div>
       </div>
