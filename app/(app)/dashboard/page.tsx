@@ -51,7 +51,7 @@ export default async function Dashboard() {
               {unvotedCount}
             </span>
             <div>
-              <div className="font-semibold text-sky-950">
+              <div className="font-semibold text-sky-900">
                 Vilka features vill du se härnäst?
               </div>
               <div className="text-sm text-sky-900">
