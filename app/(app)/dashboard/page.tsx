@@ -5,6 +5,7 @@ import { db } from "@/lib/db/client";
 import { matches, teams, players } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { InstallAppHint } from "@/components/InstallAppHint";
+import { unvotedFeatureCount } from "../forslag/actions";
 
 export default async function Dashboard() {
   const userId = await requireUserId();
@@ -32,11 +33,34 @@ export default async function Dashboard() {
       ).length
     : 0;
 
+  const unvotedCount = await unvotedFeatureCount();
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Översikt</h1>
 
       <InstallAppHint />
+
+      {unvotedCount > 0 ? (
+        <Link
+          href="/forslag"
+          className="block rounded-lg border border-sky-200 bg-sky-50/70 p-4 mb-6 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+        >
+          <div className="flex items-center gap-3">
+            <span className="shrink-0 w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-sm font-bold">
+              {unvotedCount}
+            </span>
+            <div>
+              <div className="font-semibold text-sky-900">
+                Vilka features vill du se härnäst?
+              </div>
+              <div className="text-sm text-sky-900/80">
+                Rösta på förslag eller lämna ett eget →
+              </div>
+            </div>
+          </div>
+        </Link>
+      ) : null}
 
       {teamRows.length === 0 ? (
         <Card className="mb-6">

@@ -71,6 +71,9 @@ export default async function AppLayout({
               <Link href="/matches" className="hover:underline">
                 Matcher
               </Link>
+              <Link href="/forslag" className="hover:underline">
+                Förslag
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -96,6 +99,7 @@ export default async function AppLayout({
           <Link href="/teams">Lag</Link>
           <Link href="/formations">Spelformer</Link>
           <Link href="/matches">Matcher</Link>
+          <Link href="/forslag">Förslag</Link>
         </nav>
       </div>
 

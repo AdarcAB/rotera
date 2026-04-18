@@ -134,6 +134,34 @@ export const matchPlayers = pgTable("match_players", {
   actualMinutesPlayed: integer("actual_minutes_played").notNull().default(0),
 });
 
+export const features = pgTable("features", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("open"),
+  createdByUserId: integer("created_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const featureVotes = pgTable(
+  "feature_votes",
+  {
+    id: serial("id").primaryKey(),
+    featureId: integer("feature_id")
+      .notNull()
+      .references(() => features.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("feature_votes_feature_user_idx").on(t.featureId, t.userId),
+  })
+);
+
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
