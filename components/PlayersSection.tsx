@@ -367,14 +367,14 @@ function PositionsModal({
           <p className="text-xs text-neutral-600 mb-3">
             <strong>Spelbar</strong>: spelaren kan spela på positionen.
             <br />
-            <strong>Önskad</strong>: viktar upp positionen för byten.
+            <strong>Önskar</strong>: viktar upp positionen för byten.
           </p>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-neutral-500 uppercase">
                 <th className="py-2 font-medium">Position</th>
                 <th className="py-2 font-medium text-center w-20">Spelbar</th>
-                <th className="py-2 font-medium text-center w-20">Önskad</th>
+                <th className="py-2 font-medium text-center w-20">Önskar</th>
               </tr>
             </thead>
             <tbody>
