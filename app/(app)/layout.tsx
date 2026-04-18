@@ -4,6 +4,7 @@ import { currentOrgId, requireUser, userOrgIds, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, orgTeams, teams } from "@/lib/db/schema";
 import { Logo } from "@/components/Logo";
+import { PullToRefresh } from "@/components/PullToRefresh";
 
 export default async function AppLayout({
   children,
@@ -43,6 +44,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex-1 flex flex-col">
+      <PullToRefresh />
       <a
         href="#huvudinnehall"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-primary focus:text-white focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
