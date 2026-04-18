@@ -63,7 +63,11 @@ export default async function LandingPage() {
               </a>
             </div>
 
-            <div className="mt-6 text-xs text-neutral-500">
+            <div className="mt-6 inline-flex items-center gap-2 text-xs font-medium text-emerald-800">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Gratis. För alltid.
+            </div>
+            <div className="mt-2 text-xs text-neutral-500">
               Webbapp · Installeras som PWA på iPhone och Android · Svenska
             </div>
           </div>
@@ -159,7 +163,16 @@ export default async function LandingPage() {
           <Logo size={20} />
           <span className="font-semibold text-neutral-700">Rotera</span>
         </div>
-        <div>Byggt för coacher med bråttom.</div>
+        <div className="mb-1">Byggt för coacher med bråttom.</div>
+        <div>
+          <Link href="/om" className="hover:underline">
+            Om & integritet
+          </Link>
+          {" · "}
+          <a href="mailto:hej@adarc.se" className="hover:underline">
+            hej@adarc.se
+          </a>
+        </div>
       </footer>
     </div>
   );
