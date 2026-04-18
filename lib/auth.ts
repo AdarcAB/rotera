@@ -311,19 +311,54 @@ export async function resolveInvitesForEmail(
   email: string
 ): Promise<number> {
   const normalized = email.trim().toLowerCase();
-  const invites = await db
+  let count = 0;
+
+  // Legacy team_invites
+  const tInvites = await db
     .select()
     .from(teamInvites)
     .where(eq(teamInvites.email, normalized));
-  if (invites.length === 0) return 0;
-  for (const inv of invites) {
+  for (const inv of tInvites) {
     await db
       .insert(teamMembers)
       .values({ teamId: inv.teamId, userId })
       .onConflictDoNothing();
+    // Also ensure user is an org member of the team's org.
+    const t = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, inv.teamId))
+      .limit(1)
+      .then((r) => r[0]);
+    if (t?.orgTeamId) {
+      await db
+        .insert(orgMembers)
+        .values({ orgTeamId: t.orgTeamId, userId })
+        .onConflictDoNothing();
+    }
   }
-  await db.delete(teamInvites).where(eq(teamInvites.email, normalized));
-  return invites.length;
+  if (tInvites.length > 0) {
+    await db.delete(teamInvites).where(eq(teamInvites.email, normalized));
+    count += tInvites.length;
+  }
+
+  // Modern org_invites
+  const oInvites = await db
+    .select()
+    .from(orgInvites)
+    .where(eq(orgInvites.email, normalized));
+  for (const inv of oInvites) {
+    await db
+      .insert(orgMembers)
+      .values({ orgTeamId: inv.orgTeamId, userId })
+      .onConflictDoNothing();
+  }
+  if (oInvites.length > 0) {
+    await db.delete(orgInvites).where(eq(orgInvites.email, normalized));
+    count += oInvites.length;
+  }
+
+  return count;
 }
 
 async function seedFormationsForUser(userId: number) {

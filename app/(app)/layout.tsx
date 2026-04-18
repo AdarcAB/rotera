@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { and, eq, desc, inArray } from "drizzle-orm";
-import { requireUser, userTeamIds } from "@/lib/auth";
+import { currentOrgId, requireUser, userOrgIds, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { matches, teams } from "@/lib/db/schema";
+import { matches, orgTeams, teams } from "@/lib/db/schema";
 import { Logo } from "@/components/Logo";
 
 export default async function AppLayout({
@@ -11,6 +11,13 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  const activeOrgId = await currentOrgId();
+  const orgIds = await userOrgIds(user.id);
+  const [activeOrg] = await db
+    .select()
+    .from(orgTeams)
+    .where(eq(orgTeams.id, activeOrgId))
+    .limit(1);
   const teamIds = await userTeamIds(user.id);
 
   const liveMatch =
@@ -58,6 +65,30 @@ export default async function AppLayout({
               <Logo size={28} />
               <span className="font-bold">Rotera</span>
             </Link>
+            {activeOrg ? (
+              <Link
+                href="/orgs"
+                className="hidden md:flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-800 max-w-[200px]"
+                title={
+                  orgIds.length > 1
+                    ? "Byt organisation eller hantera"
+                    : "Organisationsinställningar"
+                }
+              >
+                <span className="truncate">{activeOrg.name}</span>
+                {orgIds.length > 1 ? (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M7 10l5 5 5-5H7z" />
+                  </svg>
+                ) : null}
+              </Link>
+            ) : null}
             <nav className="hidden md:flex items-center gap-4 text-sm">
               <Link href="/dashboard" className="hover:underline">
                 Översikt
