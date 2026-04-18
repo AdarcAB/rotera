@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const appUrl = process.env.APP_URL ?? "https://rotera-one.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Rotera — byten och speltid för barnfotboll",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "Rotera — byten och speltid för barnfotboll",
+    template: "%s · Rotera",
+  },
   description:
-    "Planera och exekvera byten i barn- och ungdomsfotboll. Speltidsgaranti, rotation, live-läge.",
+    "Planera och exekvera byten i barn- och ungdomsfotboll. Speltidsgaranti, positionsrotation och live-läge för sidlinjen.",
   applicationName: "Rotera",
   appleWebApp: {
     capable: true,
@@ -13,6 +19,20 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Rotera",
+    title: "Rotera — byten som faktiskt blir rättvisa",
+    description:
+      "Speltidsgaranti, positionsrotation och live-läge för barn- och ungdomstränare.",
+    locale: "sv_SE",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rotera — byten som faktiskt blir rättvisa",
+    description:
+      "Speltidsgaranti, positionsrotation och live-läge för barn- och ungdomstränare.",
   },
 };
 

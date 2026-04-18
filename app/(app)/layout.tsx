@@ -3,6 +3,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, teams } from "@/lib/db/schema";
+import { Logo } from "@/components/Logo";
 
 export default async function AppLayout({
   children,
@@ -39,7 +40,7 @@ export default async function AppLayout({
         <header className="px-4 md:px-6 py-3 border-b border-border bg-white flex items-center justify-between">
           <div className="flex items-center gap-4 md:gap-6">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-primary" />
+              <Logo size={28} />
               <span className="font-bold">Rotera</span>
             </Link>
             <nav className="hidden md:flex items-center gap-4 text-sm">
