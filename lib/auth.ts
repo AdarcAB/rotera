@@ -17,7 +17,9 @@ import {
 
 const COOKIE_NAME = "rotera_session";
 const ORG_COOKIE_NAME = "rotera_org";
-const SESSION_DAYS = 30;
+// Rotera är en låg-känslighets-tjänst. Långlivade sessioner så coacher slipper
+// logga in varje match.
+const SESSION_DAYS = 365;
 
 function secret(): string {
   const s = process.env.AUTH_SECRET;
