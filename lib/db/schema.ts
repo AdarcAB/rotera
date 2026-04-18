@@ -20,6 +20,7 @@ export const matchStatus = pgEnum("match_status", [
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
+  preferredOrgTeamId: integer("preferred_org_team_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

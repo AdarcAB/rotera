@@ -213,22 +213,37 @@ export async function assertOrgAccessible(
   if (rows.length === 0) throw new Error("Ingen åtkomst till organisationen");
 }
 
-/** Returns the currently-active org ID for this user. Creates a default org
- * if they have none. Sets the cookie if unset. */
+/** Returns the currently-active org ID. Preference order:
+ *   1. cookie (valid + accessible)
+ *   2. users.preferred_org_team_id (if accessible)
+ *   3. first org from membership list
+ *   4. auto-create a default org if none exist
+ */
 export async function currentOrgId(): Promise<number> {
   const user = await requireUser();
   const c = await cookies();
   const raw = c.get(ORG_COOKIE_NAME)?.value;
   const orgs = await userOrgIds(user.id);
+  const accessibleSet = new Set(orgs);
 
   let targetId: number | null = null;
   if (raw) {
     const parsed = Number(raw);
-    if (Number.isFinite(parsed) && orgs.includes(parsed)) targetId = parsed;
+    if (Number.isFinite(parsed) && accessibleSet.has(parsed)) targetId = parsed;
+  }
+  if (targetId === null) {
+    const [userRow] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+    const preferred = userRow?.preferredOrgTeamId ?? null;
+    if (preferred !== null && accessibleSet.has(preferred)) {
+      targetId = preferred;
+    }
   }
   if (targetId === null) {
     if (orgs.length === 0) {
-      // Auto-create default org for this user.
       const [inserted] = await db
         .insert(orgTeams)
         .values({
@@ -244,14 +259,14 @@ export async function currentOrgId(): Promise<number> {
     } else {
       targetId = orgs[0];
     }
-    c.set(ORG_COOKIE_NAME, String(targetId), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_DAYS * 24 * 60 * 60,
-    });
   }
+  c.set(ORG_COOKIE_NAME, String(targetId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
+  });
   return targetId;
 }
 
@@ -266,6 +281,10 @@ export async function setCurrentOrgId(orgTeamId: number): Promise<void> {
     path: "/",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
+  await db
+    .update(users)
+    .set({ preferredOrgTeamId: orgTeamId })
+    .where(eq(users.id, user.id));
 }
 
 /** A team is accessible if the user is a member of its org. */
