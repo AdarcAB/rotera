@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { assertTeamAccessible, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
   formations,
@@ -29,28 +29,17 @@ export default async function TeamPage({
   const teamId = Number(id);
   const user = await requireUser();
 
-  // Access check via team_members
-  const [member] = await db
-    .select()
-    .from(teamMembers)
-    .where(eq(teamMembers.teamId, teamId))
-    .limit(1);
-  if (!member) notFound();
-
   const [team] = await db
     .select()
     .from(teams)
     .where(eq(teams.id, teamId))
     .limit(1);
   if (!team) notFound();
-
-  // Verify current user is actually a member
-  const userMembership = await db
-    .select()
-    .from(teamMembers)
-    .where(eq(teamMembers.teamId, teamId))
-    .then((rows) => rows.find((r) => r.userId === user.id));
-  if (!userMembership) notFound();
+  try {
+    await assertTeamAccessible(teamId, user.id);
+  } catch {
+    notFound();
+  }
 
   const playerList = await db
     .select({ id: players.id, name: players.name })

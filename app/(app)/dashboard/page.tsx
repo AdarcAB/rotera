@@ -51,10 +51,10 @@ export default async function Dashboard() {
               {unvotedCount}
             </span>
             <div>
-              <div className="font-semibold text-sky-900">
+              <div className="font-semibold text-sky-950">
                 Vilka features vill du se härnäst?
               </div>
-              <div className="text-sm text-sky-900/80">
+              <div className="text-sm text-sky-900">
                 Rösta på förslag eller lämna ett eget →
               </div>
             </div>
