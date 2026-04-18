@@ -79,14 +79,17 @@ export default async function LandingPage() {
         >
           <div className="max-w-5xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-6">
             <Feature
+              icon={<ScaleIcon />}
               title="Speltidsgaranti"
               body="Algoritmen fördelar minuter jämnt så alla får ungefär lika mycket speltid över en match."
             />
             <Feature
+              icon={<RotateIcon />}
               title="Positionsrotation"
               body="Spelare får sina önskade positioner när det går — och testar andra roller på ett rättvist sätt."
             />
             <Feature
+              icon={<StopwatchIcon />}
               title="Live-läge för sidlinjen"
               body="Timer, nedräkning, byte-modal och ad hoc-byten när någon går sönder. Byggd för 3 sekunders uppmärksamhet."
             />
@@ -178,12 +181,90 @@ export default async function LandingPage() {
   );
 }
 
-function Feature({ title, body }: { title: string; body: string }) {
+function Feature({
+  icon,
+  title,
+  body,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  body: string;
+}) {
   return (
     <div className="rounded-xl bg-white border border-border p-5">
+      {icon ? (
+        <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
+          {icon}
+        </div>
+      ) : null}
       <div className="font-semibold mb-1">{title}</div>
       <div className="text-sm text-neutral-600 leading-relaxed">{body}</div>
     </div>
+  );
+}
+
+function ScaleIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v18" />
+      <path d="M7 21h10" />
+      <path d="M5 7h14" />
+      <path d="M8 7l3 6H5l3-6Z" fill="currentColor" fillOpacity="0.12" />
+      <path d="M16 7l3 6h-6l3-6Z" fill="currentColor" fillOpacity="0.12" />
+    </svg>
+  );
+}
+
+function RotateIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
+  );
+}
+
+function StopwatchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M10 2h4" />
+      <path d="M12 4v2" />
+      <circle cx="12" cy="14" r="8" />
+      <path d="M12 10v4l2.5 2.5" />
+      <path d="M18.4 6.6l1.6-1.6" />
+    </svg>
   );
 }
 
