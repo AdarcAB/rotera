@@ -1,4 +1,4 @@
-import { mulberry32, pickOne, randInt, shuffle, weightedPick } from "./rng";
+import { mulberry32, shuffle, weightedPick } from "./rng";
 import { scoreSchedule } from "./score";
 import type {
   PeriodPlan,
@@ -9,7 +9,7 @@ import type {
 } from "./types";
 import { computeFloorCap, validateSchedule } from "./validate";
 
-const ATTEMPTS = 500;
+const ATTEMPTS = 1500;
 
 function evenlyDistributedMinutes(count: number, total: number): number[] {
   if (count <= 0) return [];
@@ -36,20 +36,43 @@ function pickLineup(
   players: ScheduleInput["players"],
   positions: ScheduleInput["formation"]["positions"],
   minutesSoFar: Record<number, number>,
-  rng: () => number
+  rng: () => number,
+  opts: {
+    excludePlayerIds?: Set<number>;
+    gkPositionIds?: Set<number>;
+    gkMinutesByPlayer?: Record<number, number>;
+    excludeGkPlayerId?: number | null;
+  } = {}
 ): { positionId: number; playerId: number }[] | null {
   const order = shuffle(rng, positions.map((p) => p.id));
-  const used = new Set<number>();
+  const used = new Set<number>(opts.excludePlayerIds ?? []);
   const lineup: { positionId: number; playerId: number }[] = [];
 
   for (const posId of order) {
-    const eligible = players.filter(
+    const isGk = opts.gkPositionIds?.has(posId) ?? false;
+    let eligible = players.filter(
       (p) => !used.has(p.id) && p.playablePositionIds.includes(posId)
     );
+    if (isGk && opts.excludeGkPlayerId !== undefined && opts.excludeGkPlayerId !== null) {
+      eligible = eligible.filter((p) => p.id !== opts.excludeGkPlayerId);
+    }
+    if (isGk) {
+      // Strong preference for preferred-GK candidates, then fresh GK (no GK
+      // minutes yet).
+      const preferredPool = eligible.filter((p) =>
+        p.preferredPositionIds.includes(posId)
+      );
+      if (preferredPool.length > 0) eligible = preferredPool;
+      const freshPool = eligible.filter(
+        (p) => (opts.gkMinutesByPlayer?.[p.id] ?? 0) === 0
+      );
+      if (freshPool.length > 0) eligible = freshPool;
+    }
     if (eligible.length === 0) return null;
     const picked = weightedPick(rng, eligible, (p) => {
       const m = minutesSoFar[p.id] ?? 0;
-      const base = 10 + Math.max(0, 30 - m);
+      // Strong low-minutes bias (base higher for low-minute players).
+      const base = 5 + Math.max(0, 50 - m * 1.5);
       const preferBonus = p.preferredPositionIds.includes(posId)
         ? PREFERRED_POSITION_BONUS
         : 0;
@@ -79,44 +102,27 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
     let startLineup: { positionId: number; playerId: number }[];
 
     if (pi === 0) {
-      const picked = pickLineup(players, formation.positions, minutesSoFar, rng);
+      const picked = pickLineup(players, formation.positions, minutesSoFar, rng, {
+        gkPositionIds: goalkeeperPositionIds,
+        gkMinutesByPlayer,
+      });
       if (!picked) return null;
       startLineup = picked;
     } else {
-      const nextLineup = new Map(currentLineup);
-      // Between periods — rotate the goalkeeper to someone who hasn't been GK
-      // this match (preferably with low minutes so they don't burn out).
-      for (const posId of goalkeeperPositionIds) {
-        const currentGk = nextLineup.get(posId);
-        if (currentGk === undefined) continue;
-        const onField = new Set(nextLineup.values());
-        const candidates = players.filter(
-          (p) =>
-            p.id !== currentGk &&
-            !onField.has(p.id) &&
-            p.playablePositionIds.includes(posId)
-        );
-        if (candidates.length === 0) continue;
-        // If any bench player has this GK position as "preferred", pick from
-        // that set. Otherwise fall back to everyone eligible.
-        const preferredPool = candidates.filter((p) =>
-          p.preferredPositionIds.includes(posId)
-        );
-        const pool = preferredPool.length > 0 ? preferredPool : candidates;
-        const picked = weightedPick(rng, pool, (p) => {
-          const totalMins = minutesSoFar[p.id] ?? 0;
-          const gkMins = gkMinutesByPlayer[p.id] ?? 0;
-          // Prefer players who haven't been GK yet + have low minutes. Less
-          // harsh when we're already within the preferred pool.
-          const gkPenalty = gkMins > 0 ? 0.4 : 1;
-          const base = 10 + Math.max(0, 30 - totalMins);
-          return base * gkPenalty;
-        });
-        if (picked) nextLineup.set(posId, picked.id);
-      }
-      startLineup = Array.from(nextLineup.entries())
-        .map(([positionId, playerId]) => ({ positionId, playerId }))
-        .sort((a, b) => a.positionId - b.positionId);
+      // Between periods — rebuild lineup from scratch, strongly weighted by
+      // low minutes so far. The GK position specifically excludes whoever was
+      // GK last period to enforce rotation.
+      const prevGkPlayerId =
+        [...currentLineup.entries()].find(([posId]) =>
+          goalkeeperPositionIds.has(posId)
+        )?.[1] ?? null;
+      const picked = pickLineup(players, formation.positions, minutesSoFar, rng, {
+        gkPositionIds: goalkeeperPositionIds,
+        gkMinutesByPlayer,
+        excludeGkPlayerId: prevGkPlayerId,
+      });
+      if (!picked) return null;
+      startLineup = picked;
     }
 
     currentLineup = new Map(startLineup.map((s) => [s.positionId, s.playerId]));
@@ -130,18 +136,18 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
     }
 
     const benchSize = Math.max(0, players.length - formation.positions.length);
-    // Target total spelarbyten for the period. Aim to rotate every bench
-    // player in at least once; cap at the budget (maxSubs × 3).
+    // Target total spelarbyten — rotate each bench player in at least once,
+    // capped by budget (maxSubs × 3). When bench is 0 we still respect minSubs.
     const targetTotalSpelarbyten = Math.min(
       benchSize,
       formation.maxSubs * 3
     );
-    // Prefer fewer byten packed with more spelarbyten each (1-3 per byte),
-    // but stay within [minSubs, maxSubs]. More bench → more byten.
-    const numSubPoints = Math.max(
-      formation.minSubs,
-      Math.min(formation.maxSubs, Math.ceil(targetTotalSpelarbyten / 3))
-    );
+    // Use max byten when we actually need sub points — spreads the byten
+    // across the period and reduces long stretches where one player sits.
+    const numSubPoints =
+      targetTotalSpelarbyten === 0
+        ? formation.minSubs
+        : formation.maxSubs;
     const targetPerPoint = Math.max(
       1,
       Math.min(3, Math.ceil(targetTotalSpelarbyten / Math.max(1, numSubPoints)))
@@ -160,7 +166,17 @@ function attemptSchedule(input: ScheduleInput, rng: () => number): PeriodPlan[] 
       const targetChanges = targetPerPoint;
       const changes: ScheduleChange[] = [];
       const usedInPoint = new Set<number>();
-      const posOrder = shuffle(rng, formation.positions.map((p) => p.id));
+      // Sort positions by how long their current holder has been playing —
+      // swap out the high-minute players first.
+      const posOrder = formation.positions
+        .map((p) => p.id)
+        .sort((a, b) => {
+          const aPid = currentLineup.get(a);
+          const bPid = currentLineup.get(b);
+          const aMin = aPid !== undefined ? minutesSoFar[aPid] ?? 0 : -1;
+          const bMin = bPid !== undefined ? minutesSoFar[bPid] ?? 0 : -1;
+          return bMin - aMin;
+        });
 
       for (const posId of posOrder) {
         if (changes.length >= targetChanges) break;

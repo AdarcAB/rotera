@@ -1,7 +1,7 @@
 import type { PeriodPlan, ScheduleInput, ScoreBreakdown } from "./types";
 import { computePlayerMinutes, computePlayerMinutesByPosition } from "./validate";
 
-const W1 = 100;
+const W1 = 200;
 const W2 = 40;
 const W3 = 10;
 const W4 = 5;
