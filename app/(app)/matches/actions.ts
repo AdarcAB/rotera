@@ -561,6 +561,31 @@ export async function regenerateScheduleWithStart(
   return { ok: true };
 }
 
+export async function saveMatchResult(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  const matchId = Number(formData.get("matchId"));
+  await assertOwned(matchId, userId);
+  const parseNum = (v: FormDataEntryValue | null): number | null => {
+    if (v === null) return null;
+    const s = String(v).trim();
+    if (s.length === 0) return null;
+    const n = Number(s);
+    return Number.isFinite(n) && n >= 0 && n <= 99 ? Math.floor(n) : null;
+  };
+  const goalsFor = parseNum(formData.get("goalsFor"));
+  const goalsAgainst = parseNum(formData.get("goalsAgainst"));
+  const resultNote =
+    String(formData.get("resultNote") ?? "").trim().slice(0, 500) || null;
+  await db
+    .update(matches)
+    .set({ goalsFor, goalsAgainst, resultNote })
+    .where(eq(matches.id, matchId));
+  revalidatePath(`/matches/${matchId}`);
+  revalidatePath(`/matches/${matchId}/summary`);
+  revalidatePath("/matches");
+  revalidatePath("/dashboard");
+}
+
 export async function startLive(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));

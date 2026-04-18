@@ -129,11 +129,26 @@ export default async function MatchesPage() {
               {matchList.map((m) => (
                 <li
                   key={m.id}
-                  className="py-3 flex items-center justify-between"
+                  className="py-3 flex items-center justify-between gap-3"
                 >
-                  <div>
-                    <div className="font-medium">
-                      {teamNameFor(m.teamId)} vs {m.opponent}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      <span>
+                        {teamNameFor(m.teamId)} vs {m.opponent}
+                      </span>
+                      {m.goalsFor !== null && m.goalsAgainst !== null ? (
+                        <span
+                          className={`font-mono text-xs px-1.5 py-0.5 rounded border ${
+                            m.goalsFor > m.goalsAgainst
+                              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                              : m.goalsFor < m.goalsAgainst
+                                ? "bg-red-50 text-red-900 border-red-200"
+                                : "bg-neutral-100 text-neutral-800 border-border"
+                          }`}
+                        >
+                          {m.goalsFor}–{m.goalsAgainst}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-xs text-neutral-600">
                       {m.playedAt

@@ -17,6 +17,7 @@ import {
   computeSchedulePrereqs,
   deleteMatch,
   generateScheduleAction,
+  saveMatchResult,
   startLive,
 } from "../actions";
 import type { Schedule } from "@/lib/schedule/types";
@@ -103,8 +104,23 @@ export default async function MatchPage({
 
       <div className="flex flex-wrap gap-3 items-start justify-between mt-2 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">
-            {team.name} vs {match.opponent}
+          <h1 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
+            <span>
+              {team.name} vs {match.opponent}
+            </span>
+            {match.goalsFor !== null && match.goalsAgainst !== null ? (
+              <span
+                className={`font-mono text-base px-2 py-0.5 rounded ${
+                  match.goalsFor > match.goalsAgainst
+                    ? "bg-emerald-50 text-emerald-900 border border-emerald-200"
+                    : match.goalsFor < match.goalsAgainst
+                      ? "bg-red-50 text-red-900 border border-red-200"
+                      : "bg-neutral-100 text-neutral-800 border border-border"
+                }`}
+              >
+                {match.goalsFor}–{match.goalsAgainst}
+              </span>
+            ) : null}
           </h1>
           <div className="text-sm text-neutral-600 mt-1">
             {formation.name} ·{" "}
@@ -247,6 +263,73 @@ export default async function MatchPage({
             }
           />
         )}
+      </Card>
+
+      <Card className="mt-6">
+        <CardTitle>Resultat</CardTitle>
+        <p className="text-sm text-neutral-700 mt-1 mb-3">
+          Fyll i efter matchen. Valfritt.
+        </p>
+        <form
+          action={saveMatchResult}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <input type="hidden" name="matchId" value={match.id} />
+          <div>
+            <label
+              htmlFor="goalsFor"
+              className="block text-xs uppercase tracking-wide text-neutral-600 mb-1"
+            >
+              {team.name}
+            </label>
+            <input
+              id="goalsFor"
+              name="goalsFor"
+              type="number"
+              min={0}
+              max={99}
+              defaultValue={match.goalsFor ?? ""}
+              className="h-10 w-20 rounded-md border border-border bg-white px-3 text-center font-mono text-lg"
+            />
+          </div>
+          <div className="text-2xl font-bold text-neutral-500 pb-1">–</div>
+          <div>
+            <label
+              htmlFor="goalsAgainst"
+              className="block text-xs uppercase tracking-wide text-neutral-600 mb-1"
+            >
+              {match.opponent}
+            </label>
+            <input
+              id="goalsAgainst"
+              name="goalsAgainst"
+              type="number"
+              min={0}
+              max={99}
+              defaultValue={match.goalsAgainst ?? ""}
+              className="h-10 w-20 rounded-md border border-border bg-white px-3 text-center font-mono text-lg"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label
+              htmlFor="resultNote"
+              className="block text-xs uppercase tracking-wide text-neutral-600 mb-1"
+            >
+              Kommentar (valfri)
+            </label>
+            <input
+              id="resultNote"
+              name="resultNote"
+              defaultValue={match.resultNote ?? ""}
+              maxLength={500}
+              placeholder="t.ex. Grym kamp i motvind"
+              className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
+            />
+          </div>
+          <Button type="submit" variant="secondary">
+            Spara resultat
+          </Button>
+        </form>
       </Card>
 
       <Card className="mt-10 border-red-100">
