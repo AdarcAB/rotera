@@ -42,8 +42,8 @@ export default function AboutPage() {
           <p>
             Tjänsten tillhandahålls <strong>gratis, för alltid</strong>, av{" "}
             <strong>Adarc AB</strong> som ett bidrag till svensk ungdomsidrott
-            — i tron att tränare med bråttom förtjänar verktyg som inte är i
-            vägen, utan hjälper.
+            — i tron att tränare som har bråttom förtjänar verktyg som
+            hjälper, inte som står i vägen.
           </p>
           <p>
             Kontakt:{" "}
