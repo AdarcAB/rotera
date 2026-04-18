@@ -6,15 +6,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   assertTeamAccessible,
+  currentOrgId,
   requireUser,
   requireUserId,
-  userTeamIds,
 } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
   players,
   teamInvites,
   teamMembers,
+  teamPlayers,
   teams,
   users,
 } from "@/lib/db/schema";
@@ -27,11 +28,13 @@ const TeamInput = z.object({
 
 export async function createTeam(formData: FormData) {
   const userId = await requireUserId();
+  const orgId = await currentOrgId();
   const parsed = TeamInput.parse({ name: formData.get("name") });
   const [inserted] = await db
     .insert(teams)
-    .values({ userId, name: parsed.name })
+    .values({ userId, orgTeamId: orgId, name: parsed.name })
     .returning();
+  // Legacy team_members kept for continuity; org_members is the primary access
   await db
     .insert(teamMembers)
     .values({ teamId: inserted.id, userId })
@@ -67,12 +70,90 @@ export async function createPlayer(
   const userId = await requireUserId();
   await assertTeamAccessible(teamId, userId);
   const parsed = capitalizeName(PlayerName.parse(name));
+  // Find the org that owns this team — new players live at the org level.
+  const [team] = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1);
   const [inserted] = await db
     .insert(players)
-    .values({ teamId, name: parsed })
+    .values({
+      orgTeamId: team?.orgTeamId ?? null,
+      teamId, // legacy — keep populated for now
+      name: parsed,
+    })
     .returning();
+  await db
+    .insert(teamPlayers)
+    .values({ teamId, playerId: inserted.id })
+    .onConflictDoNothing();
   revalidatePath(`/teams/${teamId}`);
   return { id: inserted.id, name: inserted.name };
+}
+
+export async function assignExistingPlayerToTeam(
+  teamId: number,
+  playerId: number
+): Promise<{ id: number; name: string } | null> {
+  const userId = await requireUserId();
+  await assertTeamAccessible(teamId, userId);
+  const [team] = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1);
+  if (!team?.orgTeamId) return null;
+  const [player] = await db
+    .select()
+    .from(players)
+    .where(and(eq(players.id, playerId), eq(players.orgTeamId, team.orgTeamId)))
+    .limit(1);
+  if (!player) return null;
+  await db
+    .insert(teamPlayers)
+    .values({ teamId, playerId })
+    .onConflictDoNothing();
+  revalidatePath(`/teams/${teamId}`);
+  return { id: player.id, name: player.name };
+}
+
+export async function searchOrgPlayers(
+  query: string
+): Promise<{ id: number; name: string; inTeamIds: number[] }[]> {
+  const userId = await requireUserId();
+  const orgId = await currentOrgId();
+  void userId;
+  const cleaned = query.trim().toLowerCase();
+  if (cleaned.length < 1) return [];
+  const rows = await db
+    .select()
+    .from(players)
+    .where(eq(players.orgTeamId, orgId));
+  const match = rows
+    .filter((p) => p.name.toLowerCase().includes(cleaned))
+    .slice(0, 8);
+  if (match.length === 0) return [];
+  const tps = await db
+    .select()
+    .from(teamPlayers)
+    .where(
+      inArray(
+        teamPlayers.playerId,
+        match.map((p) => p.id)
+      )
+    );
+  const byPlayer = new Map<number, number[]>();
+  for (const tp of tps) {
+    const arr = byPlayer.get(tp.playerId) ?? [];
+    arr.push(tp.teamId);
+    byPlayer.set(tp.playerId, arr);
+  }
+  return match.map((p) => ({
+    id: p.id,
+    name: p.name,
+    inTeamIds: byPlayer.get(p.id) ?? [],
+  }));
 }
 
 export async function renamePlayer(
@@ -282,8 +363,12 @@ export async function removeMember(
   revalidatePath("/teams");
 }
 
-/** userTeamIds re-export for UI consumption */
+/** Team IDs accessible to the current user (teams in their current org). */
 export async function listAccessibleTeamIds(): Promise<number[]> {
-  const userId = await requireUserId();
-  return userTeamIds(userId);
+  const orgId = await currentOrgId();
+  const rows = await db
+    .select({ id: teams.id })
+    .from(teams)
+    .where(eq(teams.orgTeamId, orgId));
+  return rows.map((r) => r.id);
 }

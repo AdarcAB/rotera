@@ -8,10 +8,15 @@ import {
   authTokens,
   teamMembers,
   teamInvites,
+  teams,
   matches,
+  orgTeams,
+  orgMembers,
+  orgInvites,
 } from "./db/schema";
 
 const COOKIE_NAME = "rotera_session";
+const ORG_COOKIE_NAME = "rotera_org";
 const SESSION_DAYS = 30;
 
 function secret(): string {
@@ -171,26 +176,119 @@ export async function consumeOtp(
   return row.userId;
 }
 
-export async function userTeamIds(userId: number): Promise<number[]> {
+export async function userOrgIds(userId: number): Promise<number[]> {
   const rows = await db
-    .select({ teamId: teamMembers.teamId })
-    .from(teamMembers)
-    .where(eq(teamMembers.userId, userId));
-  return rows.map((r) => r.teamId);
+    .select({ orgTeamId: orgMembers.orgTeamId })
+    .from(orgMembers)
+    .where(eq(orgMembers.userId, userId));
+  return rows.map((r) => r.orgTeamId);
 }
 
-export async function assertTeamAccessible(
-  teamId: number,
+export async function assertOrgAccessible(
+  orgTeamId: number,
   userId: number
 ): Promise<void> {
   const rows = await db
     .select()
-    .from(teamMembers)
+    .from(orgMembers)
     .where(
-      and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId))
+      and(eq(orgMembers.orgTeamId, orgTeamId), eq(orgMembers.userId, userId))
     )
     .limit(1);
-  if (rows.length === 0) throw new Error("Ingen åtkomst till laget");
+  if (rows.length === 0) throw new Error("Ingen åtkomst till organisationen");
+}
+
+/** Returns the currently-active org ID for this user. Creates a default org
+ * if they have none. Sets the cookie if unset. */
+export async function currentOrgId(): Promise<number> {
+  const user = await requireUser();
+  const c = await cookies();
+  const raw = c.get(ORG_COOKIE_NAME)?.value;
+  const orgs = await userOrgIds(user.id);
+
+  let targetId: number | null = null;
+  if (raw) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && orgs.includes(parsed)) targetId = parsed;
+  }
+  if (targetId === null) {
+    if (orgs.length === 0) {
+      // Auto-create default org for this user.
+      const [inserted] = await db
+        .insert(orgTeams)
+        .values({
+          name: `${user.email.split("@")[0]}s organisation`,
+          createdByUserId: user.id,
+        })
+        .returning();
+      await db
+        .insert(orgMembers)
+        .values({ orgTeamId: inserted.id, userId: user.id })
+        .onConflictDoNothing();
+      targetId = inserted.id;
+    } else {
+      targetId = orgs[0];
+    }
+    c.set(ORG_COOKIE_NAME, String(targetId), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_DAYS * 24 * 60 * 60,
+    });
+  }
+  return targetId;
+}
+
+export async function setCurrentOrgId(orgTeamId: number): Promise<void> {
+  const user = await requireUser();
+  await assertOrgAccessible(orgTeamId, user.id);
+  const c = await cookies();
+  c.set(ORG_COOKIE_NAME, String(orgTeamId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
+  });
+}
+
+/** A team is accessible if the user is a member of its org. */
+export async function assertTeamAccessible(
+  teamId: number,
+  userId: number
+): Promise<void> {
+  const row = await db
+    .select({ orgTeamId: teams.orgTeamId })
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1)
+    .then((r) => r[0]);
+  if (!row || row.orgTeamId === null) {
+    throw new Error("Laget saknar organisation");
+  }
+  await assertOrgAccessible(row.orgTeamId, userId);
+}
+
+/** Legacy helper retained for callers; returns teams in current org. */
+export async function userTeamIds(userId: number): Promise<number[]> {
+  const orgIds = await userOrgIds(userId);
+  if (orgIds.length === 0) return [];
+  const rows = await db
+    .select({ id: teams.id })
+    .from(teams)
+    .where(inArray(teams.orgTeamId, orgIds));
+  return rows.map((r) => r.id);
+}
+
+/** Teams in the caller's current active org. */
+export async function teamIdsInCurrentOrg(): Promise<number[]> {
+  const orgId = await currentOrgId();
+  const rows = await db
+    .select({ id: teams.id })
+    .from(teams)
+    .where(eq(teams.orgTeamId, orgId));
+  return rows.map((r) => r.id);
 }
 
 export async function resolveInvitesForEmail(
