@@ -163,7 +163,7 @@ export default async function LandingPage() {
           <Logo size={20} />
           <span className="font-semibold text-neutral-700">Rotera</span>
         </div>
-        <div className="mb-1">Byggt för tränare på språng.</div>
+        <div className="mb-1">Så du kan coacha barnen, inte byteslistan.</div>
         <div>
           <Link href="/om" className="hover:underline">
             Om & integritet

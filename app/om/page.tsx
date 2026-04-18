@@ -42,8 +42,9 @@ export default function AboutPage() {
           <p>
             Tjänsten tillhandahålls <strong>gratis, för alltid</strong>, av{" "}
             <strong>Adarc AB</strong> som ett bidrag till svensk ungdomsidrott
-            — i tron att tränare som har bråttom förtjänar verktyg som
-            hjälper, inte som står i vägen.
+            — så att tränare kan lägga sin uppmärksamhet på att coacha
+            barnen, istället för att hålla reda på byten, tider och
+            speltidslistor vid sidlinjen.
           </p>
           <p>
             Kontakt:{" "}
@@ -66,9 +67,8 @@ export default function AboutPage() {
               via mejl) och för att hålla din session knuten till ditt konto.
             </li>
             <li>
-              <strong>Spelarnas namn och eventuella smeknamn/tröjnummer</strong>
-              {" "}— information du själv matar in för att använda appen. Vi
-              uppmuntrar dig att bara ange förnamn.
+              <strong>Spelarnas namn</strong> — information du själv matar in
+              för att använda appen. Vi uppmuntrar dig att bara ange förnamn.
             </li>
             <li>
               <strong>Lag, spelformer, matcher och scheman</strong> — skapat av
