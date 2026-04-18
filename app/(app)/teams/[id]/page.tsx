@@ -1,15 +1,23 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { players, teamMembers, teams } from "@/lib/db/schema";
+import {
+  formations,
+  matchPlayers,
+  matches,
+  players,
+  teamMembers,
+  teams,
+} from "@/lib/db/schema";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { TeamNameEdit } from "@/components/TeamNameEdit";
 import { PlayersTable } from "@/components/PlayersTable";
 import { TeamMembersSection } from "@/components/TeamMembersSection";
 import { deleteTeam, listTeamMembersAndInvites } from "../actions";
+import { fairScore, optimalMinutes, verdictFor } from "@/lib/stats";
 
 export default async function TeamPage({
   params,
@@ -51,6 +59,92 @@ export default async function TeamPage({
 
   const { members, invites } = await listTeamMembersAndInvites(teamId);
 
+  // ── Season stats: fair score per player across finished matches ──
+  const finishedMatches = await db
+    .select()
+    .from(matches)
+    .where(and(eq(matches.teamId, teamId), eq(matches.status, "finished")));
+
+  type PlayerStat = {
+    playerId: number;
+    name: string;
+    matches: number;
+    totalMinutes: number;
+    avgFairScore: number; // mean across matches player was called to
+  };
+  const statsByPlayer = new Map<number, { scoreSum: number; matches: number; minutes: number }>();
+
+  if (finishedMatches.length > 0) {
+    const formationsById = new Map<number, typeof finishedMatches extends (infer _)[] ? never : never>();
+    const formIds = Array.from(
+      new Set(finishedMatches.map((m) => m.formationId))
+    );
+    const formRows = await db
+      .select()
+      .from(formations)
+      .where(inArray(formations.id, formIds));
+    const formMap = new Map(formRows.map((f) => [f.id, f]));
+
+    const mpRows = await db
+      .select()
+      .from(matchPlayers)
+      .where(
+        inArray(
+          matchPlayers.matchId,
+          finishedMatches.map((m) => m.id)
+        )
+      );
+
+    const mpByMatch = new Map<number, typeof mpRows>();
+    for (const mp of mpRows) {
+      const arr = mpByMatch.get(mp.matchId) ?? [];
+      arr.push(mp);
+      mpByMatch.set(mp.matchId, arr);
+    }
+
+    for (const match of finishedMatches) {
+      const form = formMap.get(match.formationId);
+      if (!form) continue;
+      const roster = mpByMatch.get(match.id) ?? [];
+      if (roster.length === 0) continue;
+      const optimal = optimalMinutes({
+        minutesPerPeriod: form.minutesPerPeriod,
+        numPeriods: form.numPeriods,
+        playersOnField: form.playersOnField,
+        troupSize: roster.length,
+      });
+      for (const mp of roster) {
+        if (mp.playerId === null) continue; // skip guests for now
+        const score = fairScore(mp.actualMinutesPlayed, optimal);
+        const agg = statsByPlayer.get(mp.playerId) ?? {
+          scoreSum: 0,
+          matches: 0,
+          minutes: 0,
+        };
+        agg.scoreSum += score;
+        agg.matches += 1;
+        agg.minutes += mp.actualMinutesPlayed;
+        statsByPlayer.set(mp.playerId, agg);
+      }
+    }
+    // Silence unused variable warning
+    void formationsById;
+  }
+
+  const statsList: PlayerStat[] = Array.from(statsByPlayer.entries()).map(
+    ([playerId, agg]) => {
+      const p = playerList.find((pp) => pp.id === playerId);
+      return {
+        playerId,
+        name: p?.name ?? "Okänd",
+        matches: agg.matches,
+        totalMinutes: agg.minutes,
+        avgFairScore: agg.matches > 0 ? agg.scoreSum / agg.matches : 0,
+      };
+    }
+  );
+  statsList.sort((a, b) => a.avgFairScore - b.avgFairScore);
+
   return (
     <div>
       <Link href="/teams" className="text-sm text-neutral-600 hover:underline">
@@ -89,6 +183,52 @@ export default async function TeamPage({
           }))}
         />
       </Card>
+
+      {statsList.length > 0 ? (
+        <Card className="mt-6">
+          <CardTitle>Säsongsstatistik</CardTitle>
+          <p className="text-sm text-neutral-700 mt-1 mb-3">
+            Baserat på {finishedMatches.length} avslutad
+            {finishedMatches.length === 1 ? " match" : "a matcher"}.{" "}
+            <strong>Fair score</strong>: 100 = rättvis speltid. Under = för
+            lite, över = för mycket. Sorterat stigande så underspelade visas
+            först — det är där coachen har jobb att göra.
+          </p>
+          <ul className="mt-3 divide-y divide-border">
+            {statsList.map((s) => {
+              const v = verdictFor(s.avgFairScore);
+              const color =
+                v === "perfect"
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                  : v === "close"
+                    ? "text-neutral-700 bg-neutral-50 border-border"
+                    : v === "heavy"
+                      ? "text-amber-800 bg-amber-50 border-amber-200"
+                      : "text-sky-800 bg-sky-50 border-sky-200";
+              return (
+                <li
+                  key={s.playerId}
+                  className="py-3 flex items-center justify-between gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{s.name}</div>
+                    <div className="text-xs text-neutral-600 mt-0.5">
+                      {s.matches} {s.matches === 1 ? "match" : "matcher"} ·{" "}
+                      {s.totalMinutes}′ totalt
+                    </div>
+                  </div>
+                  <div
+                    className={`w-16 shrink-0 text-center py-1 rounded-md border font-mono text-sm font-semibold ${color}`}
+                    title="Snittfärg: Grön ±5, Grå ±15, Amber > +15, Blå < -15"
+                  >
+                    {Math.round(s.avgFairScore)}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
 
       <Card className="mt-10 border-red-100">
         <CardTitle>Radera lag</CardTitle>
