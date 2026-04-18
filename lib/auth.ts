@@ -84,30 +84,33 @@ export function generateOtp(): string {
   return n.toString().padStart(6, "0");
 }
 
-export async function createLoginToken(
+export async function findOrCreateUserByEmail(
   email: string
-): Promise<{ token: string; otp: string; normalizedEmail: string }> {
+): Promise<{ userId: number; normalizedEmail: string }> {
   const normalized = email.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
     throw new Error("Ogiltig e-postadress");
   }
+  const existing = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, normalized))
+    .limit(1);
+  if (existing.length > 0) return { userId: existing[0].id, normalizedEmail: normalized };
+  const [inserted] = await db.insert(users).values({ email: normalized }).returning();
+  await seedFormationsForUser(inserted.id);
+  return { userId: inserted.id, normalizedEmail: normalized };
+}
 
-  const existing = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
-  let userId: number;
-  if (existing.length === 0) {
-    const [inserted] = await db.insert(users).values({ email: normalized }).returning();
-    userId = inserted.id;
-    await seedFormationsForUser(userId);
-  } else {
-    userId = existing[0].id;
-  }
-
+export async function createLoginToken(
+  email: string
+): Promise<{ token: string; otp: string; normalizedEmail: string }> {
+  const { userId, normalizedEmail } = await findOrCreateUserByEmail(email);
   const token = generateToken();
   const otp = generateOtp();
   const expires = new Date(Date.now() + 30 * 60 * 1000);
   await db.insert(authTokens).values({ userId, token, otp, expiresAt: expires });
-
-  return { token, otp, normalizedEmail: normalized };
+  return { token, otp, normalizedEmail };
 }
 
 export async function consumeLoginToken(token: string): Promise<number | null> {

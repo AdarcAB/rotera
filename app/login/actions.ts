@@ -1,34 +1,29 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { consumeOtp, createLoginToken, setSession } from "@/lib/auth";
-import { sendMagicLinkEmail } from "@/lib/email";
+import {
+  consumeOtp,
+  findOrCreateUserByEmail,
+  setSession,
+} from "@/lib/auth";
+
+const EMAIL_ONLY_LOGIN = true;
 
 export async function requestLoginLink(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
-  let sent: "resend" | "console";
-  let normalized: string;
   try {
-    const { token, otp, normalizedEmail } = await createLoginToken(email);
-    normalized = normalizedEmail;
-    const base = process.env.APP_URL ?? "http://localhost:3000";
-    const url = `${base}/login/verify?token=${token}`;
-
-    const result = await sendMagicLinkEmail({ to: normalizedEmail, url, otp });
-    if (!result.ok) {
-      redirect(
-        `/login?error=${encodeURIComponent("Kunde inte skicka mejl: " + result.error)}`
-      );
+    if (EMAIL_ONLY_LOGIN) {
+      const { userId } = await findOrCreateUserByEmail(email);
+      await setSession(userId);
+      redirect("/dashboard");
     }
-    sent = result.via;
+    // Full magic-link + OTP flow is kept for when EMAIL_ONLY_LOGIN is flipped
+    // off. The imports are intentionally retained above for that flow.
   } catch (e) {
     if (e && typeof e === "object" && "digest" in e) throw e;
-    const msg = e instanceof Error ? e.message : "Kunde inte skapa login-länk";
+    const msg = e instanceof Error ? e.message : "Kunde inte logga in";
     redirect(`/login?error=${encodeURIComponent(msg)}`);
   }
-  redirect(
-    `/login?sent=${sent}&email=${encodeURIComponent(normalized)}`
-  );
 }
 
 export async function verifyOtp(formData: FormData) {
