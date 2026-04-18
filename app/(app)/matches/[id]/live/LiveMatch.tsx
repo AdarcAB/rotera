@@ -10,26 +10,47 @@ import type { AdHocSub, LiveState, PlayerMeta } from "./page";
 
 const PRE_SUB_WARN_SECONDS = 10;
 
-function playBeep(frequency = 880, durationMs = 200, volume = 0.35) {
+let sharedAudioCtx: AudioContext | null = null;
+
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (sharedAudioCtx) return sharedAudioCtx;
   try {
     const AC = (window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext) as typeof AudioContext;
-    const ctx = new AC();
+    sharedAudioCtx = new AC();
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function playBeep(frequency = 880, durationMs = 200, volume = 0.35) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
     osc.frequency.value = frequency;
-    gain.gain.value = volume;
+    const now = ctx.currentTime;
+    const attack = 0.008;
+    const release = Math.min(0.08, durationMs / 1000 / 2);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(volume, now + attack);
+    gain.gain.setValueAtTime(volume, now + durationMs / 1000 - release);
+    gain.gain.exponentialRampToValueAtTime(
+      0.0001,
+      now + durationMs / 1000
+    );
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start();
-    setTimeout(() => {
-      osc.stop();
-      ctx.close();
-    }, durationMs);
+    osc.start(now);
+    osc.stop(now + durationMs / 1000 + 0.02);
   } catch {
-    // silent fail — audio not allowed until user interaction
+    // silent fail
   }
 }
 
@@ -275,8 +296,8 @@ export function LiveMatch({
     return live.elapsedBeforePause;
   }, [live, now]);
 
-  const remainingSec = Math.max(0, Math.round((periodMs - elapsedMs) / 1000));
-  const elapsedSec = Math.round(elapsedMs / 1000);
+  const remainingSec = Math.max(0, Math.ceil((periodMs - elapsedMs) / 1000));
+  const elapsedSec = Math.floor(elapsedMs / 1000);
   const minuteInPeriod = Math.floor(elapsedSec / 60);
 
   const currentPeriod = schedule.periods[live.currentPeriodIndex];
