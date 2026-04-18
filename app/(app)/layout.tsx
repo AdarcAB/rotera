@@ -27,6 +27,12 @@ export default async function AppLayout({
 
   return (
     <div className="flex-1 flex flex-col">
+      <a
+        href="#huvudinnehall"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-primary focus:text-white focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+      >
+        Hoppa till innehåll
+      </a>
       <div className="sticky top-0 z-20 bg-white">
         {liveMatch ? (
           <Link
@@ -81,7 +87,10 @@ export default async function AppLayout({
         </nav>
       </div>
 
-      <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl w-full mx-auto">
+      <main
+        id="huvudinnehall"
+        className="flex-1 px-4 md:px-6 py-6 max-w-5xl w-full mx-auto"
+      >
         {children}
       </main>
     </div>

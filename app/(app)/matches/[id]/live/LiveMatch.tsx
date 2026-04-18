@@ -629,7 +629,7 @@ export function LiveMatch({
           <input type="hidden" name="matchId" value={matchId} />
           <button
             type="submit"
-            className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-white text-sm text-red-700 hover:bg-red-50"
+            className="inline-flex items-center gap-2 h-11 px-4 rounded-md border border-border bg-white text-sm text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
           >
             <StopIcon className="w-4 h-4" />
             Avbryt matchen
@@ -712,7 +712,7 @@ function PrePeriodView({
         <PlayIcon className="w-6 h-6 mr-2" />
         Starta period {periodIndex + 1}
       </Button>
-      <p className="text-xs text-neutral-500 mb-5 text-center">
+      <p className="text-sm text-neutral-700 mb-5 text-center">
         Tryck när domaren blåser igång.
       </p>
 
@@ -825,7 +825,7 @@ function RunningView({
         <div className="text-6xl md:text-7xl font-mono font-bold tracking-tight">
           {formatTime(remainingSec)}
         </div>
-        <div className="text-sm text-neutral-600 mt-2">
+        <div className="text-base text-neutral-800 mt-2 font-medium">
           {nextSubMinute !== null && secondsUntilNextSub !== null
             ? `Nästa byte: ${nextSubMinute}′ (om ${Math.max(
                 0,
@@ -833,14 +833,16 @@ function RunningView({
               )}s)`
             : "Inga fler byten denna period"}
           {" · "}
-          Spelat: {formatTime(elapsedSec)}
+          <span className="text-neutral-600 font-normal">
+            Spelat: {formatTime(elapsedSec)}
+          </span>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-white p-4 mb-3">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="font-semibold">På plan</div>
-          <div className="text-xs text-neutral-500">
+          <div className="text-sm text-neutral-700">
             Tryck på en spelare för ad hoc-byte
           </div>
         </div>
@@ -865,15 +867,15 @@ function RunningView({
       />
 
       <div className="rounded-lg border border-border bg-white p-3 mb-4">
-        <div className="font-semibold mb-2 text-sm">Bänk</div>
+        <div className="font-semibold mb-2">Bänk</div>
         <div className="flex flex-wrap gap-2">
           {benchIds.length === 0 ? (
-            <span className="text-xs text-neutral-500">Tom</span>
+            <span className="text-sm text-neutral-600">Tom</span>
           ) : (
             benchIds.map((id) => (
               <span
                 key={id}
-                className="px-2 py-1 rounded-md border border-border text-sm bg-neutral-50"
+                className="px-2.5 py-1.5 rounded-md border border-border text-base bg-neutral-50"
               >
                 {playerMap[id] ?? "?"}
               </span>
@@ -957,7 +959,7 @@ function UpcomingSubsPreview({
 
   return (
     <div className="rounded-lg border border-border bg-white p-3 mb-3">
-      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">
+      <div className="text-sm text-neutral-700 uppercase tracking-wide mb-1 font-medium">
         Nästa byte
       </div>
       <div className="mb-1 font-semibold text-base">
@@ -1002,17 +1004,17 @@ function UpcomingSubsPreview({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-neutral-600 hover:underline"
+            className="text-sm text-neutral-700 hover:underline focus:outline-none focus:underline"
           >
             {expanded
               ? "▾ Dölj senare byten"
               : `▸ Visa ${later.length} senare byten`}
           </button>
           {expanded ? (
-            <ul className="mt-2 space-y-1 text-xs text-neutral-700">
+            <ul className="mt-2 space-y-1 text-sm text-neutral-700">
               {later.map(({ sp, i }) => (
                 <li key={i}>
-                  <span className="font-mono bg-neutral-50 px-1 rounded">
+                  <span className="font-mono bg-neutral-50 px-1.5 py-0.5 rounded">
                     {sp.minuteInPeriod}&apos;
                   </span>{" "}
                   {sp.changes
@@ -1355,10 +1357,10 @@ function Pitch({
             <div className="w-12 h-12 rounded-full bg-white text-emerald-900 font-bold text-sm flex items-center justify-center shadow">
               {positionMap[slot.positionId]?.abbreviation ?? "?"}
             </div>
-            <div className="text-xs text-white font-medium mt-1 max-w-[104px] truncate px-1 bg-black/40 rounded">
+            <div className="text-sm text-white font-semibold mt-1 max-w-[112px] truncate px-1.5 py-0.5 bg-black/50 rounded">
               {playerMap[slot.playerId] ?? "?"}
               {mins !== null ? (
-                <span className="ml-1 text-[10px] font-mono text-white/70">
+                <span className="ml-1 text-xs font-mono text-white/80">
                   {mins}′
                 </span>
               ) : null}

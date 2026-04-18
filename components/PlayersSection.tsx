@@ -199,7 +199,7 @@ export function PlayersSection({
   return (
     <>
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div className="text-xs text-neutral-600">
+        <div className="text-sm text-neutral-700">
           Bocka i spelarna som deltar. Klicka på "Positioner" för att finjustera
           spelbara och önskade positioner. Ändringar sparas automatiskt.
         </div>
@@ -207,7 +207,7 @@ export function PlayersSection({
           <button
             type="button"
             onClick={selectAll}
-            className="text-xs h-7 px-2 rounded-md border border-border bg-white hover:bg-neutral-50 whitespace-nowrap"
+            className="text-sm h-10 px-3 rounded-md border border-border bg-white hover:bg-neutral-50 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-neutral-300"
           >
             {allCalled ? "Avmarkera alla" : `Välj alla (${teamPlayers.length})`}
           </button>
@@ -240,7 +240,7 @@ export function PlayersSection({
                       type="checkbox"
                       checked={called}
                       onChange={(e) => setCalled(p.id, e.target.checked)}
-                      className="w-4 h-4 align-middle"
+                      className="w-5 h-5 align-middle accent-emerald-600"
                       aria-label={`Kalla ${p.name}`}
                     />
                   </td>
@@ -251,12 +251,12 @@ export function PlayersSection({
                       {p.name}
                     </span>
                     {mp && mp.playablePositionIds.length < allPositionIds.length ? (
-                      <span className="ml-2 text-xs text-neutral-500">
+                      <span className="ml-2 text-sm text-neutral-600">
                         · begränsad
                       </span>
                     ) : null}
                     {mp && mp.preferredPositionIds.length > 0 ? (
-                      <span className="ml-2 text-xs text-emerald-700">
+                      <span className="ml-2 text-sm text-emerald-700">
                         · önskar {mp.preferredPositionIds.length}
                       </span>
                     ) : null}
@@ -266,7 +266,7 @@ export function PlayersSection({
                       <button
                         type="button"
                         onClick={() => setOpenMpId(mp.id)}
-                        className="text-xs h-7 px-2 rounded-md border border-border hover:bg-neutral-50"
+                        className="text-sm h-10 px-3 rounded-md border border-border hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-300"
                       >
                         Positioner
                       </button>
@@ -289,12 +289,12 @@ export function PlayersSection({
               </td>
               <td className="py-2">
                 {g.guestName ?? "Gäst"}{" "}
-                <span className="text-xs text-neutral-500">(gäst)</span>
+                <span className="text-sm text-neutral-600">(gäst)</span>
                 {g.playablePositionIds.length < allPositionIds.length ? (
-                  <span className="ml-2 text-xs text-neutral-500">· begränsad</span>
+                  <span className="ml-2 text-sm text-neutral-600">· begränsad</span>
                 ) : null}
                 {g.preferredPositionIds.length > 0 ? (
-                  <span className="ml-2 text-xs text-emerald-700">
+                  <span className="ml-2 text-sm text-emerald-700">
                     · önskar {g.preferredPositionIds.length}
                   </span>
                 ) : null}
@@ -304,14 +304,14 @@ export function PlayersSection({
                   <button
                     type="button"
                     onClick={() => setOpenMpId(g.id)}
-                    className="text-xs h-7 px-2 rounded-md border border-border hover:bg-neutral-50"
+                    className="text-sm h-10 px-3 rounded-md border border-border hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-300"
                   >
                     Positioner
                   </button>
                   <button
                     type="button"
                     onClick={() => removeGuest(g.id)}
-                    className="text-xs h-7 px-2 rounded-md text-red-600 hover:bg-red-50"
+                    className="text-sm h-10 px-3 rounded-md text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
                   >
                     Ta bort
                   </button>
@@ -323,7 +323,7 @@ export function PlayersSection({
       </table>
 
       <div className="mt-4 border-t border-border pt-3">
-        <div className="text-xs text-neutral-500 mb-1 uppercase tracking-wide">
+        <div className="text-sm text-neutral-700 mb-1 uppercase tracking-wide font-medium">
           Lägg till gästspelare
         </div>
         <div className="flex gap-2">
@@ -477,7 +477,7 @@ function PositionsModal({
                         type="checkbox"
                         checked={can}
                         onChange={() => handlePlayable(p.id)}
-                        className="w-4 h-4"
+                        className="w-5 h-5 accent-emerald-600"
                       />
                     </td>
                     <td className="py-2 text-center">
@@ -486,7 +486,7 @@ function PositionsModal({
                         checked={wants}
                         onChange={() => handlePreferred(p.id)}
                         disabled={!can}
-                        className="w-4 h-4 disabled:opacity-40"
+                        className="w-5 h-5 accent-emerald-600 disabled:opacity-40"
                       />
                     </td>
                   </tr>

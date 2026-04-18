@@ -94,7 +94,7 @@ export function PlayersTable({
                     )
                       remove(r.id);
                   }}
-                  className="text-xs text-red-600 hover:underline px-2 py-1"
+                  className="text-sm text-red-700 hover:underline px-3 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-red-300 rounded-md"
                   aria-label={`Ta bort ${r.name}`}
                 >
                   Ta bort
@@ -126,7 +126,7 @@ export function PlayersTable({
       <button
         type="button"
         onClick={() => draftRef.current?.focus()}
-        className="mt-2 text-xs text-neutral-600 hover:underline"
+        className="mt-2 text-sm text-neutral-700 hover:underline focus:outline-none focus:underline"
       >
         + Lägg till ny rad
       </button>
