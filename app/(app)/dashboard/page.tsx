@@ -99,13 +99,17 @@ export default async function Dashboard() {
           <p className="text-sm text-neutral-600 mt-2">Inga matcher ännu.</p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
-            {matchRows.map((m) => (
+            {matchRows.map((m) => {
+              const teamName = teamRows.find((t) => t.id === m.teamId)?.name;
+              return (
               <li key={m.id} className="py-3 flex items-center justify-between">
                 <div>
-                  <div className="font-medium">vs {m.opponent}</div>
+                  <div className="font-medium">
+                    {teamName ? `${teamName} vs ${m.opponent}` : `vs ${m.opponent}`}
+                  </div>
                   <div className="text-sm text-neutral-600">
                     {m.playedAt
-                      ? new Date(m.playedAt).toLocaleString("sv-SE")
+                      ? new Date(m.playedAt).toLocaleDateString("sv-SE")
                       : "Utan datum"}
                     {" · "}
                     <span className="uppercase">{m.status}</span>
@@ -118,7 +122,8 @@ export default async function Dashboard() {
                   Öppna →
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
         <div className="mt-4">
