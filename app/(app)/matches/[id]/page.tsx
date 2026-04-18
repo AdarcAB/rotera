@@ -156,7 +156,7 @@ export default async function MatchPage({
             <CardTitle>Spelare</CardTitle>
             {schedule ? (
               <span className="text-sm text-neutral-500 ml-2">
-                ({initialMatchPlayers.length} kallade)
+                ({initialMatchPlayers.length} i truppen)
               </span>
             ) : null}
           </summary>
@@ -219,7 +219,7 @@ export default async function MatchPage({
 
         {!schedule ? (
           <p className="text-sm text-neutral-600 mt-3">
-            Inget schema genererat ännu. Kalla spelarna och tryck på knappen.
+            Inget schema genererat ännu. Välj spelare och tryck på knappen.
           </p>
         ) : (
           <ScheduleView

@@ -200,7 +200,7 @@ export function PlayersSection({
     <>
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="text-sm text-neutral-700">
-          Bocka i spelarna som deltar. Klicka på "Positioner" för att finjustera
+          Bocka i spelarna som är med i truppen. Klicka på "Positioner" för att finjustera
           spelbara och önskade positioner. Ändringar sparas automatiskt.
         </div>
         {teamPlayers.length > 0 ? (
@@ -241,7 +241,7 @@ export function PlayersSection({
                       checked={called}
                       onChange={(e) => setCalled(p.id, e.target.checked)}
                       className="w-5 h-5 align-middle accent-emerald-600"
-                      aria-label={`Kalla ${p.name}`}
+                      aria-label={`Ta med ${p.name}`}
                     />
                   </td>
                   <td className="py-2">
