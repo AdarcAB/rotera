@@ -191,6 +191,9 @@ export const matches = pgTable("matches", {
   status: matchStatus("status").notNull().default("draft"),
   generatedScheduleJson: jsonb("generated_schedule_json"),
   liveStateJson: jsonb("live_state_json"),
+  goalsFor: integer("goals_for"),
+  goalsAgainst: integer("goals_against"),
+  resultNote: text("result_note"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
