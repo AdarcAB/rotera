@@ -4,9 +4,15 @@ import { currentOrgId } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { createOrg, getOrgDetail, listMyOrgs } from "./actions";
+import {
+  createOrg,
+  getOrgDetail,
+  listMyOrgs,
+  listOrgPlayers,
+} from "./actions";
 import { OrgsList } from "@/components/OrgsList";
 import { OrgDetailPanel } from "@/components/OrgDetailPanel";
+import { OrgPlayersSection } from "@/components/OrgPlayersSection";
 
 export const metadata: Metadata = {
   title: "Organisation",
@@ -16,6 +22,7 @@ export default async function OrgsPage() {
   const current = await currentOrgId();
   const orgs = await listMyOrgs();
   const detail = await getOrgDetail(current);
+  const orgPlayers = await listOrgPlayers(current);
 
   return (
     <div>
@@ -24,6 +31,17 @@ export default async function OrgsPage() {
       <div className="grid md:grid-cols-[1fr_360px] gap-4">
         <div className="space-y-4">
           {detail ? <OrgDetailPanel detail={detail} /> : null}
+
+          {detail ? (
+            <Card>
+              <CardTitle>Spelare i organisationen ({orgPlayers.length})</CardTitle>
+              <p className="text-sm text-neutral-700 mt-1 mb-3">
+                Alla spelare som hör till <strong>{detail.name}</strong>. Tilldelas
+                lag via lag-sidan.
+              </p>
+              <OrgPlayersSection players={orgPlayers} />
+            </Card>
+          ) : null}
 
           <Card>
             <CardTitle>Alla organisationer du tillhör</CardTitle>

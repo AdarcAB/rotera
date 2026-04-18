@@ -16,10 +16,13 @@ import {
   orgInvites,
   orgMembers,
   orgTeams,
+  players,
+  teamPlayers,
   teams,
   users,
 } from "@/lib/db/schema";
 import { sendTeamInviteEmail } from "@/lib/email";
+import { capitalizeName } from "@/lib/utils";
 
 const OrgInput = z.object({
   name: z.string().trim().min(1, "Namn krävs").max(80),
@@ -258,6 +261,86 @@ export type OrgDetail = {
     createdAt: string;
   }[];
 };
+
+export type OrgPlayerRow = {
+  id: number;
+  name: string;
+  teams: { id: number; name: string }[];
+};
+
+export async function listOrgPlayers(
+  orgTeamId: number
+): Promise<OrgPlayerRow[]> {
+  const userId = await requireUserId();
+  await assertOrgAccessible(orgTeamId, userId);
+
+  const rows = await db
+    .select()
+    .from(players)
+    .where(eq(players.orgTeamId, orgTeamId));
+  if (rows.length === 0) return [];
+
+  const teamAssignments = await db
+    .select({
+      playerId: teamPlayers.playerId,
+      teamId: teams.id,
+      teamName: teams.name,
+    })
+    .from(teamPlayers)
+    .innerJoin(teams, eq(teams.id, teamPlayers.teamId))
+    .where(
+      inArray(
+        teamPlayers.playerId,
+        rows.map((p) => p.id)
+      )
+    );
+
+  const byPlayer = new Map<number, { id: number; name: string }[]>();
+  for (const a of teamAssignments) {
+    const arr = byPlayer.get(a.playerId) ?? [];
+    arr.push({ id: a.teamId, name: a.teamName });
+    byPlayer.set(a.playerId, arr);
+  }
+
+  return rows
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      teams: byPlayer.get(p.id) ?? [],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "sv"));
+}
+
+export async function renameOrgPlayer(
+  playerId: number,
+  name: string
+): Promise<void> {
+  const userId = await requireUserId();
+  const [p] = await db
+    .select()
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+  if (!p?.orgTeamId) throw new Error("Spelare saknar org");
+  await assertOrgAccessible(p.orgTeamId, userId);
+  const clean = capitalizeName(name.trim().slice(0, 80));
+  if (!clean) return;
+  await db.update(players).set({ name: clean }).where(eq(players.id, playerId));
+  revalidatePath("/orgs");
+}
+
+export async function deleteOrgPlayer(playerId: number): Promise<void> {
+  const userId = await requireUserId();
+  const [p] = await db
+    .select()
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+  if (!p?.orgTeamId) return;
+  await assertOrgAccessible(p.orgTeamId, userId);
+  await db.delete(players).where(eq(players.id, playerId));
+  revalidatePath("/orgs");
+}
 
 export async function getOrgDetail(orgTeamId: number): Promise<OrgDetail | null> {
   const userId = await requireUserId();
