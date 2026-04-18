@@ -43,11 +43,22 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const themeScript = `
+  try {
+    var t = localStorage.getItem('rotera.theme') || 'system';
+    var isDark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) document.documentElement.classList.add('dark');
+  } catch (e) {}
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sv" className="h-full antialiased">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
       </body>

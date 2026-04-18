@@ -5,6 +5,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { deleteAccount } from "./actions";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "Konto",
@@ -37,6 +38,14 @@ export default async function KontoPage({
           </a>{" "}
           om du behöver byta adress.
         </p>
+      </Card>
+
+      <Card className="mt-6">
+        <CardTitle>Utseende</CardTitle>
+        <p className="text-sm text-neutral-600 mt-2 mb-3">
+          "System" följer din enhets inställning.
+        </p>
+        <ThemeToggle />
       </Card>
 
       <Card className="mt-6">

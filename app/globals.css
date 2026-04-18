@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #fafafa;
   --foreground: #0a0a0a;
@@ -10,6 +12,18 @@
   --primary-foreground: #ffffff;
   --muted: #737373;
   --danger: #dc2626;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --border: #2e2e2e;
+  --primary: #22c55e;
+  --primary-foreground: #0a0a0a;
+  --muted: #a3a3a3;
+  --danger: #ef4444;
 }
 
 @theme inline {
@@ -54,4 +68,77 @@ summary.clean::-webkit-details-marker {
 }
 summary.clean {
   list-style: none;
+}
+
+/*
+ * Dark mode: broad overrides for Tailwind's fixed greys so existing components
+ * (using bg-white, bg-neutral-50/100, text-neutral-*, border-border) switch
+ * naturally without per-component rewrites. Uses attribute selectors so only
+ * elements *below* .dark in the tree get the overrides.
+ */
+.dark {
+  color-scheme: dark;
+}
+.dark :is(.bg-white) {
+  background-color: var(--card) !important;
+}
+.dark :is(.bg-neutral-50) {
+  background-color: #1d1d1d !important;
+}
+.dark :is(.bg-neutral-50\/30) {
+  background-color: #1a1a1a !important;
+}
+.dark :is(.bg-neutral-100) {
+  background-color: #262626 !important;
+}
+.dark :is(.bg-neutral-900) {
+  background-color: #050505 !important;
+}
+.dark :is(.text-neutral-900) {
+  color: #fafafa !important;
+}
+.dark :is(.text-neutral-800) {
+  color: #e5e5e5 !important;
+}
+.dark :is(.text-neutral-700) {
+  color: #d4d4d4 !important;
+}
+.dark :is(.text-neutral-600) {
+  color: #a3a3a3 !important;
+}
+.dark :is(.text-neutral-500) {
+  color: #8a8a8a !important;
+}
+.dark :is(.border-border) {
+  border-color: var(--border) !important;
+}
+.dark :is(.border-neutral-200) {
+  border-color: #2e2e2e !important;
+}
+.dark :is(.border-red-100, .border-red-200) {
+  border-color: #7f1d1d !important;
+}
+.dark :is(.bg-red-50, .bg-red-50\/30) {
+  background-color: #451010 !important;
+}
+.dark :is(.text-red-900) {
+  color: #fca5a5 !important;
+}
+.dark :is(.bg-emerald-50, .bg-emerald-50\/70) {
+  background-color: #07331c !important;
+}
+.dark :is(.text-emerald-900, .text-emerald-800) {
+  color: #86efac !important;
+}
+.dark :is(.bg-amber-50, .bg-amber-50\/30) {
+  background-color: #3a2c08 !important;
+}
+.dark :is(.text-amber-900, .text-amber-800) {
+  color: #fde68a !important;
+}
+.dark :is(.bg-sky-50, .bg-sky-50\/70) {
+  background-color: #0c2742 !important;
+}
+.dark :is(.text-sky-900) {
+  color: #7dd3fc !important;
 }
