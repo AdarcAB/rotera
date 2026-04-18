@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUserId } from "@/lib/auth";
@@ -10,41 +10,34 @@ import type { FeatureRow } from "./types";
 
 export async function listFeatures(): Promise<FeatureRow[]> {
   const userId = await requireUserId();
-  const rows = await db.execute(sql`
-    SELECT
-      f.id,
-      f.title,
-      f.description,
-      f.status,
-      f.created_by_user_id AS "createdByUserId",
-      f.created_at AS "createdAt",
-      COALESCE(COUNT(v.id), 0)::int AS votes,
-      BOOL_OR(v.user_id = ${userId}) AS "myVote"
-    FROM features f
-    LEFT JOIN feature_votes v ON v.feature_id = f.id
-    GROUP BY f.id
-    ORDER BY votes DESC, f.created_at DESC
-  `);
-  type Row = {
-    id: number;
-    title: string;
-    description: string | null;
-    status: string;
-    createdByUserId: number | null;
-    createdAt: Date;
-    votes: number;
-    myVote: boolean | null;
-  };
-  return (rows.rows as unknown as Row[]).map((r) => ({
-    id: r.id,
-    title: r.title,
-    description: r.description,
-    status: r.status,
-    votes: r.votes,
-    myVote: !!r.myVote,
-    createdByUserId: r.createdByUserId,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  const featureRows = await db.select().from(features);
+  const voteRows = await db.select().from(featureVotes);
+
+  const countByFeature = new Map<number, number>();
+  const myVotedSet = new Set<number>();
+  for (const v of voteRows) {
+    countByFeature.set(
+      v.featureId,
+      (countByFeature.get(v.featureId) ?? 0) + 1
+    );
+    if (v.userId === userId) myVotedSet.add(v.featureId);
+  }
+
+  return featureRows
+    .map((f) => ({
+      id: f.id,
+      title: f.title,
+      description: f.description,
+      status: f.status,
+      votes: countByFeature.get(f.id) ?? 0,
+      myVote: myVotedSet.has(f.id),
+      createdByUserId: f.createdByUserId,
+      createdAt: f.createdAt.toISOString(),
+    }))
+    .sort((a, b) => {
+      if (b.votes !== a.votes) return b.votes - a.votes;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
 }
 
 const FeatureInput = z.object({
@@ -112,19 +105,19 @@ export async function toggleVote(
   return { voted: true };
 }
 
-/** For the dashboard banner: count of features the user hasn't voted on yet. */
+/** For the dashboard banner: count of open features the user hasn't voted on. */
 export async function unvotedFeatureCount(): Promise<number> {
   const userId = await requireUserId();
-  const rows = await db.execute(sql`
-    SELECT COUNT(*)::int AS c
-    FROM features f
-    WHERE f.status = 'open'
-      AND NOT EXISTS (
-        SELECT 1 FROM feature_votes v
-        WHERE v.feature_id = f.id AND v.user_id = ${userId}
-      )
-  `);
-  const first = rows.rows[0] as unknown as { c: number };
-  return first?.c ?? 0;
+  const open = await db
+    .select()
+    .from(features)
+    .where(eq(features.status, "open"));
+  if (open.length === 0) return 0;
+  const myVotes = await db
+    .select()
+    .from(featureVotes)
+    .where(eq(featureVotes.userId, userId));
+  const votedOn = new Set(myVotes.map((v) => v.featureId));
+  return open.filter((f) => !votedOn.has(f.id)).length;
 }
 
