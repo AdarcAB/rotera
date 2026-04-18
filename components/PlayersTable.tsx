@@ -86,8 +86,15 @@ export function PlayersTable({
               <td className="py-1 text-right">
                 <button
                   type="button"
-                  onClick={() => remove(r.id)}
-                  className="text-xs text-red-600 hover:underline opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Ta bort ${r.name}? Spelaren försvinner ur laget permanent.`
+                      )
+                    )
+                      remove(r.id);
+                  }}
+                  className="text-xs text-red-600 hover:underline px-2 py-1"
                   aria-label={`Ta bort ${r.name}`}
                 >
                   Ta bort
