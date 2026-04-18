@@ -1,0 +1,27 @@
+name: Förslag
+description: Ny funktion, förbättring eller idé.
+title: "[Förslag]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem eller behov
+      description: Vad är det du vill lösa eller förbättra?
+      placeholder: "Som tränare vill jag ..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Tänkt lösning
+      description: Hur tänker du dig att det skulle fungera?
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra kontext
+      description: Alternativ du övervägt, referenser, etc.
+    validations:
+      required: false

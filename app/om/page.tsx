@@ -57,6 +57,34 @@ export default function AboutPage() {
           </p>
         </Section>
 
+        <Section title="Öppen källkod">
+          <p>
+            Rotera är{" "}
+            <strong>open source</strong> under{" "}
+            <a
+              className="text-emerald-700 hover:underline"
+              href="https://opensource.org/license/mit"
+              target="_blank"
+              rel="noreferrer"
+            >
+              MIT-licens
+            </a>
+            . Använd, kopiera, modifiera, driftsätt själv — gärna.
+          </p>
+          <p>
+            Koden finns på{" "}
+            <a
+              className="text-emerald-700 hover:underline"
+              href="https://github.com/andsj073/rotera"
+              target="_blank"
+              rel="noreferrer"
+            >
+              github.com/andsj073/rotera
+            </a>
+            . Issues och pull requests välkomnas.
+          </p>
+        </Section>
+
         <Section title="Personuppgifter (GDPR)">
           <p>
             Vi behandlar så lite personuppgifter som möjligt. Konkret:

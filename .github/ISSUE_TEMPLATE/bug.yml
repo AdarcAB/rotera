@@ -1,0 +1,54 @@
+name: Bug
+description: Något går sönder, beter sig fel, eller krånglar.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Vad hände?
+      description: Beskriv problemet kort och konkret. Vad trycktes, vad hände?
+      placeholder: "När jag klickade X så ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Vad förväntade du dig skulle hända?
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steg för att återskapa
+      placeholder: |
+        1. Gå till ...
+        2. Klicka på ...
+        3. Se felet ...
+    validations:
+      required: false
+  - type: dropdown
+    id: device
+    attributes:
+      label: Enhet
+      options:
+        - iPhone (Safari)
+        - iPhone (Chrome)
+        - Android (Chrome)
+        - Android (annan)
+        - Desktop Chrome
+        - Desktop Safari
+        - Desktop Firefox
+        - Annan
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL där det hände
+      placeholder: "t.ex. https://rotera.online/matches/42/live"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Skärmdumpar
+      description: Dra-och-släpp bilder hit om det hjälper.
