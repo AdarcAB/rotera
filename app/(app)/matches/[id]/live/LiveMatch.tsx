@@ -227,6 +227,7 @@ export function LiveMatch({
   const [, startSave] = useTransition();
   const [adHocOpenFor, setAdHocOpenFor] = useState<number | null>(null);
   const [forceOpenSub, setForceOpenSub] = useState(false);
+  const [dismissedSubKey, setDismissedSubKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (live.status !== "running") return;
@@ -532,6 +533,13 @@ export function LiveMatch({
     setLive(next);
     saveLive(next);
     setForceOpenSub(false);
+    setDismissedSubKey(null);
+  };
+
+  const handleCancelSub = () => {
+    if (!nextSub) return;
+    setForceOpenSub(false);
+    setDismissedSubKey(nextSub.key);
   };
 
   const allPlayerIds = Object.keys(playerMap).map((k) => Number(k));
@@ -548,7 +556,9 @@ export function LiveMatch({
     nextSub !== null &&
     effectiveNextChanges.length > 0 &&
     (forceOpenSub ||
-      (secondsUntilNextSub !== null && secondsUntilNextSub <= 0));
+      (secondsUntilNextSub !== null &&
+        secondsUntilNextSub <= 0 &&
+        dismissedSubKey !== nextSub.key));
 
   const performAdHocSub = (positionId: number, inPlayerId: number) => {
     const outPlayerId = currentLineup.get(positionId);
@@ -647,6 +657,7 @@ export function LiveMatch({
           positionMap={positionMap}
           playerMap={playerMap}
           onComplete={handleCompleteSub}
+          onCancel={handleCancelSub}
         />
       ) : null}
 
@@ -1066,6 +1077,7 @@ function SubModal({
   positionMap,
   playerMap,
   onComplete,
+  onCancel,
 }: {
   changes: {
     positionId: number;
@@ -1076,6 +1088,7 @@ function SubModal({
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
   onComplete: (appliedPositionIds: number[]) => void;
+  onCancel: () => void;
 }) {
   const anyRewired = changes.some((c) => c.rewired);
   const [checkedPositionIds, setCheckedPositionIds] = useState<Set<number>>(
@@ -1100,6 +1113,15 @@ function SubModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex flex-col text-white p-6 overflow-auto">
+      <div className="flex justify-end max-w-2xl mx-auto w-full">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-sm text-white/70 hover:text-white underline underline-offset-2 py-2 px-1 focus:outline-none focus-visible:text-white"
+        >
+          Avbryt — gör bytet senare
+        </button>
+      </div>
       <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full">
         <div className="text-center mb-6">
           <div className="text-3xl font-bold">BYTE!</div>
