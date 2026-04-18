@@ -53,15 +53,30 @@ export function PlayersSection({
 
   const allPositionIds = positions.map((p) => p.id);
 
+  const makeTempMp = (playerId: number): MatchPlayerRow => ({
+    id: -Date.now() - Math.floor(Math.random() * 1000),
+    playerId,
+    isGuest: false,
+    guestName: null,
+    playablePositionIds: positions.map((p) => p.id),
+    preferredPositionIds: [],
+  });
+
   const setCalled = (playerId: number, called: boolean) => {
     if (called) {
+      const temp = makeTempMp(playerId);
+      setMps((prev) => [...prev, temp]);
       startTransition(async () => {
-        try {
-          const created = await togglePlayerCalledAction(matchId, playerId, true);
-          if (created) setMps((prev) => [...prev, created]);
-        } catch {
-          /* ignore */
+        const created = await togglePlayerCalledAction(
+          matchId,
+          playerId,
+          true
+        ).catch(() => null);
+        if (!created) {
+          setMps((prev) => prev.filter((mp) => mp.id !== temp.id));
+          return;
         }
+        setMps((prev) => prev.map((mp) => (mp.id === temp.id ? created : mp)));
       });
     } else {
       const existing = mpByPlayer.get(playerId);
@@ -82,7 +97,6 @@ export function PlayersSection({
   const selectAll = () => {
     if (teamPlayers.length === 0) return;
     if (allCalled) {
-      // Uncheck all
       const toRemove = teamPlayers
         .map((p) => mpByPlayer.get(p.id))
         .filter((mp): mp is MatchPlayerRow => !!mp);
@@ -99,14 +113,26 @@ export function PlayersSection({
       return;
     }
     const toAdd = teamPlayers.filter((p) => !mpByPlayer.has(p.id));
+    const temps = toAdd.map((p) => makeTempMp(p.id));
+    setMps((prev) => [...prev, ...temps]);
     startTransition(async () => {
-      const created = await Promise.all(
+      const results = await Promise.all(
         toAdd.map((p) =>
           togglePlayerCalledAction(matchId, p.id, true).catch(() => null)
         )
       );
-      const ok = created.filter((c): c is MatchPlayerRow => !!c);
-      if (ok.length > 0) setMps((prev) => [...prev, ...ok]);
+      setMps((prev) => {
+        const next = [...prev];
+        for (let i = 0; i < toAdd.length; i++) {
+          const real = results[i];
+          const temp = temps[i];
+          const idx = next.findIndex((mp) => mp.id === temp.id);
+          if (idx === -1) continue;
+          if (real) next[idx] = real;
+          else next.splice(idx, 1);
+        }
+        return next;
+      });
     });
   };
 
@@ -137,13 +163,22 @@ export function PlayersSection({
     const name = capitalizeName(guestDraft);
     if (!name) return;
     setGuestDraft("");
+    const temp: MatchPlayerRow = {
+      id: -Date.now() - Math.floor(Math.random() * 1000),
+      playerId: null,
+      isGuest: true,
+      guestName: name,
+      playablePositionIds: positions.map((p) => p.id),
+      preferredPositionIds: [],
+    };
+    setMps((prev) => [...prev, temp]);
     startTransition(async () => {
-      try {
-        const created = await addGuestAction(matchId, name);
-        if (created) setMps((prev) => [...prev, created]);
-      } catch {
-        /* ignore */
+      const created = await addGuestAction(matchId, name).catch(() => null);
+      if (!created) {
+        setMps((prev) => prev.filter((mp) => mp.id !== temp.id));
+        return;
       }
+      setMps((prev) => prev.map((mp) => (mp.id === temp.id ? created : mp)));
     });
   };
 
