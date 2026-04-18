@@ -570,7 +570,8 @@ function PrePeriodView({
       </div>
 
       <Button size="xl" className="w-full bg-primary" onClick={onStart}>
-        ▶ Starta period {periodIndex + 1}
+        <PlayIcon className="w-6 h-6 mr-2" />
+        Starta period {periodIndex + 1}
       </Button>
     </div>
   );
@@ -680,15 +681,18 @@ function RunningView({
       <div className="grid grid-cols-2 gap-2">
         {live.status === "running" ? (
           <Button variant="secondary" size="lg" onClick={onPause}>
-            ⏸ Pausa
+            <PauseIcon className="w-5 h-5 mr-2" />
+            Pausa
           </Button>
         ) : (
           <Button size="lg" onClick={onResume}>
-            ▶ Återuppta
+            <PlayIcon className="w-5 h-5 mr-2" />
+            Återuppta
           </Button>
         )}
         <Button variant="secondary" size="lg" onClick={onJumpToBreak}>
-          ⏭ Hoppa till paus
+          <SkipEndIcon className="w-5 h-5 mr-2" />
+          Hoppa till paus
         </Button>
       </div>
     </div>
@@ -1197,6 +1201,47 @@ function splitIntoRows(count: number): number[] {
       return arr;
     }
   }
+}
+
+function PauseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+function PlayIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M8 5.5v13a.75.75 0 0 0 1.16.63l10-6.5a.75.75 0 0 0 0-1.26l-10-6.5A.75.75 0 0 0 8 5.5Z" />
+    </svg>
+  );
+}
+
+function SkipEndIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M5 5.5v13a.75.75 0 0 0 1.16.63l8-5.2V18.5a.75.75 0 0 0 1.5 0v-13a.75.75 0 0 0-1.5 0v4.57l-8-5.2A.75.75 0 0 0 5 5.5Z" />
+      <rect x="17.5" y="5" width="2" height="14" rx="0.8" />
+    </svg>
+  );
 }
 
 function FinishedView({ matchId }: { matchId: number }) {
