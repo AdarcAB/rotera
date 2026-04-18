@@ -54,7 +54,9 @@ export async function createOrg(formData: FormData) {
 
 export async function switchOrg(orgTeamId: number): Promise<void> {
   await setCurrentOrgId(orgTeamId);
-  revalidatePath("/");
+  // Revalidate the whole app shell — layout reads currentOrgId, and every
+  // page is scoped to it.
+  revalidatePath("/", "layout");
 }
 
 export async function renameOrg(
