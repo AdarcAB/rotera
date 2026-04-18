@@ -202,6 +202,7 @@ export function LiveMatch({
   const [live, setLive] = useState<LiveState>(initialLiveState ?? defaultLiveState());
   const [now, setNow] = useState<number>(() => Date.now());
   const beepedRef = useRef<Set<string>>(new Set());
+  const countdownBeepedRef = useRef<Set<string>>(new Set());
   const [, startSave] = useTransition();
   const [adHocOpenFor, setAdHocOpenFor] = useState<number | null>(null);
 
@@ -209,6 +210,45 @@ export function LiveMatch({
     if (live.status !== "running") return;
     const id = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(id);
+  }, [live.status]);
+
+  // Wake Lock — keep the screen on during a running period (iOS 16.4+, most
+  // modern Android browsers). Silently no-op elsewhere. Re-acquire if the
+  // sentinel is released (e.g. after the page was backgrounded).
+  useEffect(() => {
+    if (live.status !== "running") return;
+    type Sentinel = { released: boolean; release: () => Promise<void> };
+    let sentinel: Sentinel | null = null;
+    let cancelled = false;
+
+    const acquire = async () => {
+      try {
+        const nav = navigator as unknown as {
+          wakeLock?: { request: (type: "screen") => Promise<Sentinel> };
+        };
+        if (!nav.wakeLock) return;
+        const s = await nav.wakeLock.request("screen");
+        if (cancelled) {
+          s.release().catch(() => {});
+          return;
+        }
+        sentinel = s;
+      } catch {
+        // permission denied / not supported
+      }
+    };
+
+    acquire();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !sentinel) acquire();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (sentinel) sentinel.release().catch(() => {});
+      sentinel = null;
+    };
   }, [live.status]);
 
   const saveLive = useCallback(
@@ -359,6 +399,31 @@ export function LiveMatch({
     effectiveNextChanges.length,
     saveLive,
   ]);
+
+  // Pre-sub countdown beeps: one soft beep at 10s warning, short high-pitch
+  // beep each second for 3, 2, 1.
+  useEffect(() => {
+    if (
+      live.status !== "running" ||
+      !nextSub ||
+      secondsUntilNextSub === null ||
+      effectiveNextChanges.length === 0
+    ) {
+      return;
+    }
+    const key = nextSub.key;
+    const s = secondsUntilNextSub;
+    if (s === 10 && !countdownBeepedRef.current.has(`${key}:warn`)) {
+      countdownBeepedRef.current.add(`${key}:warn`);
+      playBeep(520, 120, 0.3);
+    }
+    for (const mark of [3, 2, 1]) {
+      if (s === mark && !countdownBeepedRef.current.has(`${key}:cnt${mark}`)) {
+        countdownBeepedRef.current.add(`${key}:cnt${mark}`);
+        playBeep(1040, 90, 0.35);
+      }
+    }
+  }, [live.status, nextSub, secondsUntilNextSub, effectiveNextChanges.length]);
 
   useEffect(() => {
     if (
