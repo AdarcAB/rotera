@@ -1,9 +1,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "./db/client";
-import { users, authTokens } from "./db/schema";
+import {
+  users,
+  authTokens,
+  teamMembers,
+  teamInvites,
+  matches,
+} from "./db/schema";
 
 const COOKIE_NAME = "rotera_session";
 const SESSION_DAYS = 30;
@@ -96,10 +102,20 @@ export async function findOrCreateUserByEmail(
     .from(users)
     .where(eq(users.email, normalized))
     .limit(1);
-  if (existing.length > 0) return { userId: existing[0].id, normalizedEmail: normalized };
-  const [inserted] = await db.insert(users).values({ email: normalized }).returning();
-  await seedFormationsForUser(inserted.id);
-  return { userId: inserted.id, normalizedEmail: normalized };
+  let userId: number;
+  if (existing.length > 0) {
+    userId = existing[0].id;
+  } else {
+    const [inserted] = await db
+      .insert(users)
+      .values({ email: normalized })
+      .returning();
+    userId = inserted.id;
+    await seedFormationsForUser(userId);
+  }
+  // Resolve any pending team invites to this email into actual memberships.
+  await resolveInvitesForEmail(userId, normalized);
+  return { userId, normalizedEmail: normalized };
 }
 
 export async function createLoginToken(
@@ -153,6 +169,48 @@ export async function consumeOtp(
     .set({ usedAt: new Date() })
     .where(eq(authTokens.id, row.id));
   return row.userId;
+}
+
+export async function userTeamIds(userId: number): Promise<number[]> {
+  const rows = await db
+    .select({ teamId: teamMembers.teamId })
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, userId));
+  return rows.map((r) => r.teamId);
+}
+
+export async function assertTeamAccessible(
+  teamId: number,
+  userId: number
+): Promise<void> {
+  const rows = await db
+    .select()
+    .from(teamMembers)
+    .where(
+      and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId))
+    )
+    .limit(1);
+  if (rows.length === 0) throw new Error("Ingen åtkomst till laget");
+}
+
+export async function resolveInvitesForEmail(
+  userId: number,
+  email: string
+): Promise<number> {
+  const normalized = email.trim().toLowerCase();
+  const invites = await db
+    .select()
+    .from(teamInvites)
+    .where(eq(teamInvites.email, normalized));
+  if (invites.length === 0) return 0;
+  for (const inv of invites) {
+    await db
+      .insert(teamMembers)
+      .values({ teamId: inv.teamId, userId })
+      .onConflictDoNothing();
+  }
+  await db.delete(teamInvites).where(eq(teamInvites.email, normalized));
+  return invites.length;
 }
 
 async function seedFormationsForUser(userId: number) {

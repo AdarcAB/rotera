@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
-import { requireUserId } from "@/lib/auth";
+import { desc, eq, inArray } from "drizzle-orm";
+import { requireUserId, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { formations, matches, teams } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -18,14 +18,19 @@ function todayIso(): string {
 
 export default async function MatchesPage() {
   const userId = await requireUserId();
+  const teamIds = await userTeamIds(userId);
   const [teamList, formationList, matchList] = await Promise.all([
-    db.select().from(teams).where(eq(teams.userId, userId)),
+    teamIds.length === 0
+      ? Promise.resolve([])
+      : db.select().from(teams).where(inArray(teams.id, teamIds)),
     db.select().from(formations).where(eq(formations.userId, userId)),
-    db
-      .select()
-      .from(matches)
-      .where(eq(matches.userId, userId))
-      .orderBy(desc(matches.createdAt)),
+    teamIds.length === 0
+      ? Promise.resolve([])
+      : db
+          .select()
+          .from(matches)
+          .where(inArray(matches.teamId, teamIds))
+          .orderBy(desc(matches.createdAt)),
   ]);
 
   const canCreate = teamList.length > 0 && formationList.length > 0;

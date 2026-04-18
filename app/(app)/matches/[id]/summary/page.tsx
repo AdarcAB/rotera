@@ -25,9 +25,15 @@ export default async function SummaryPage({
   const [match] = await db
     .select()
     .from(matches)
-    .where(and(eq(matches.id, matchId), eq(matches.userId, userId)))
+    .where(eq(matches.id, matchId))
     .limit(1);
   if (!match) notFound();
+  try {
+    const { assertTeamAccessible } = await import("@/lib/auth");
+    await assertTeamAccessible(match.teamId, userId);
+  } catch {
+    notFound();
+  }
 
   const [mps, teamPlayers, posList] = await Promise.all([
     db.select().from(matchPlayers).where(eq(matchPlayers.matchId, matchId)),

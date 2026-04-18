@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const matchStatus = pgEnum("match_status", [
@@ -34,10 +35,47 @@ export const authTokens = pgTable("auth_tokens", {
 
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Kept as "created by" marker; set null if creator deletes their account.
+  // Access control is via teamMembers, not this column.
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: serial("id").primaryKey(),
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("team_members_team_user_idx").on(t.teamId, t.userId),
+  })
+);
+
+export const teamInvites = pgTable(
+  "team_invites",
+  {
+    id: serial("id").primaryKey(),
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    invitedByUserId: integer("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("team_invites_team_email_idx").on(t.teamId, t.email),
+  })
+);
 
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
@@ -72,7 +110,8 @@ export const positions = pgTable("positions", {
 
 export const matches = pgTable("matches", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // "Created by" marker. Access is via team membership, not this column.
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   teamId: integer("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
   formationId: integer("formation_id").notNull().references(() => formations.id, { onDelete: "restrict" }),
   opponent: text("opponent").notNull(),
@@ -97,6 +136,8 @@ export const matchPlayers = pgTable("match_players", {
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type TeamInvite = typeof teamInvites.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Formation = typeof formations.$inferSelect;
 export type Position = typeof positions.$inferSelect;

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { and, eq, desc } from "drizzle-orm";
-import { requireUser } from "@/lib/auth";
+import { and, eq, desc, inArray } from "drizzle-orm";
+import { requireUser, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, teams } from "@/lib/db/schema";
 import { Logo } from "@/components/Logo";
@@ -11,19 +11,28 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  const teamIds = await userTeamIds(user.id);
 
-  const liveMatch = await db
-    .select({
-      id: matches.id,
-      opponent: matches.opponent,
-      teamName: teams.name,
-    })
-    .from(matches)
-    .leftJoin(teams, eq(teams.id, matches.teamId))
-    .where(and(eq(matches.userId, user.id), eq(matches.status, "live")))
-    .orderBy(desc(matches.createdAt))
-    .limit(1)
-    .then((r) => r[0] ?? null);
+  const liveMatch =
+    teamIds.length === 0
+      ? null
+      : await db
+          .select({
+            id: matches.id,
+            opponent: matches.opponent,
+            teamName: teams.name,
+          })
+          .from(matches)
+          .leftJoin(teams, eq(teams.id, matches.teamId))
+          .where(
+            and(
+              inArray(matches.teamId, teamIds),
+              eq(matches.status, "live")
+            )
+          )
+          .orderBy(desc(matches.createdAt))
+          .limit(1)
+          .then((r) => r[0] ?? null);
 
   return (
     <div className="flex-1 flex flex-col">

@@ -87,3 +87,79 @@ Om du inte begärde detta kan du ignorera mejlet.`;
     return { ok: false, error: msg };
   }
 }
+
+export async function sendTeamInviteEmail(params: {
+  to: string;
+  teamName: string;
+  inviterEmail: string;
+}): Promise<SendResult> {
+  const { to, teamName, inviterEmail } = params;
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM ?? DEFAULT_FROM;
+  const appUrl = process.env.APP_URL ?? "https://rotera.online";
+
+  if (!apiKey) {
+    console.log("\n================ ROTERA TEAM INVITE ================");
+    console.log(`  Till:      ${to}`);
+    console.log(`  Lag:       ${teamName}`);
+    console.log(`  Från:      ${inviterEmail}`);
+    console.log(`  Logga in:  ${appUrl}/login`);
+    console.log("====================================================\n");
+    return { ok: true, via: "console" };
+  }
+
+  const resend = new Resend(apiKey);
+
+  const html = `
+    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #0a0a0a;">
+      <h1 style="font-size: 22px; margin: 0 0 12px;">Inbjudan till ${escapeHtml(teamName)}</h1>
+      <p style="font-size: 14px; color: #404040; line-height: 1.5;">
+        <strong>${escapeHtml(inviterEmail)}</strong> har bjudit in dig att hjälpa till med laget <strong>${escapeHtml(teamName)}</strong> på Rotera.
+      </p>
+      <p style="font-size: 14px; color: #404040; line-height: 1.5;">
+        Rotera är en gratis app som hjälper tränare planera byten och speltid för barn- och ungdomsfotboll. Logga in med den här e-postadressen så får du access till laget direkt.
+      </p>
+      <p style="margin: 24px 0;">
+        <a href="${appUrl}/login" style="display: inline-block; background: #16a34a; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: 600;">Logga in på Rotera</a>
+      </p>
+      <p style="font-size: 12px; color: #a3a3a3; margin-top: 32px;">
+        Om du inte känner igen avsändaren kan du ignorera mejlet.
+      </p>
+    </div>
+  `.trim();
+
+  const text = `${inviterEmail} har bjudit in dig till laget "${teamName}" på Rotera.
+
+Logga in med den här e-postadressen så får du access direkt:
+${appUrl}/login
+
+Om du inte känner igen avsändaren kan du ignorera mejlet.`;
+
+  try {
+    const resp = await resend.emails.send({
+      from,
+      to,
+      subject: `Inbjudan: ${teamName} på Rotera`,
+      html,
+      text,
+    });
+    if (resp.error) {
+      console.error("Resend invite error:", resp.error);
+      return { ok: false, error: resp.error.message ?? "Okänt Resend-fel" };
+    }
+    return { ok: true, via: "resend" };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Okänt fel";
+    console.error("Invite send failed:", msg);
+    return { ok: false, error: msg };
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}

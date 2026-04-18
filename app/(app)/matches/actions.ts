@@ -17,6 +17,7 @@ import {
 import { generateSchedule } from "@/lib/schedule/generate";
 import type { ScheduleInput } from "@/lib/schedule/types";
 import { capitalizeName } from "@/lib/utils";
+import { assertTeamAccessible } from "@/lib/auth";
 
 const MatchInput = z.object({
   opponent: z.string().trim().min(1).max(80),
@@ -38,9 +39,10 @@ async function assertOwned(matchId: number, userId: number) {
   const rows = await db
     .select()
     .from(matches)
-    .where(and(eq(matches.id, matchId), eq(matches.userId, userId)))
+    .where(eq(matches.id, matchId))
     .limit(1);
-  if (rows.length === 0) throw new Error("Match saknas eller fel ägare");
+  if (rows.length === 0) throw new Error("Match saknas");
+  await assertTeamAccessible(rows[0].teamId, userId);
   return rows[0];
 }
 
@@ -48,10 +50,11 @@ export async function createMatch(formData: FormData) {
   const userId = await requireUserId();
   const parsed = MatchInput.parse(Object.fromEntries(formData.entries()));
 
+  await assertTeamAccessible(parsed.teamId, userId);
   const [team] = await db
     .select()
     .from(teams)
-    .where(and(eq(teams.id, parsed.teamId), eq(teams.userId, userId)))
+    .where(eq(teams.id, parsed.teamId))
     .limit(1);
   if (!team) throw new Error("Lag saknas");
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
-import { requireUserId } from "@/lib/auth";
+import { desc, inArray } from "drizzle-orm";
+import { requireUserId, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { teams } from "@/lib/db/schema";
 import { Button } from "@/components/ui/Button";
@@ -10,11 +10,15 @@ import { Card, CardTitle } from "@/components/ui/Card";
 
 export default async function TeamsPage() {
   const userId = await requireUserId();
-  const list = await db
-    .select()
-    .from(teams)
-    .where(eq(teams.userId, userId))
-    .orderBy(desc(teams.createdAt));
+  const teamIds = await userTeamIds(userId);
+  const list =
+    teamIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(teams)
+          .where(inArray(teams.id, teamIds))
+          .orderBy(desc(teams.createdAt));
 
   return (
     <div>
@@ -35,7 +39,7 @@ export default async function TeamsPage() {
         </Card>
 
         <Card>
-          <CardTitle>Dina lag</CardTitle>
+          <CardTitle>Lag du har access till</CardTitle>
           {list.length === 0 ? (
             <p className="text-sm text-neutral-600 mt-2">Inga lag ännu.</p>
           ) : (
