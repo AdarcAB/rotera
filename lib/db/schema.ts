@@ -29,6 +29,7 @@ export const authTokens = pgTable("auth_tokens", {
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   otp: text("otp"),
+  attempts: integer("attempts").notNull().default(0),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -159,7 +160,11 @@ export const teamPlayers = pgTable(
 
 export const formations = pgTable("formations", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Nullable: when the creator deletes their account, formations referenced
+  // by surviving matches (in shared teams) need to outlive the user.
+  // matches.formation_id uses ON DELETE RESTRICT, so cascading the formation
+  // would otherwise block the user delete.
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   numPeriods: integer("num_periods").notNull(),
   minutesPerPeriod: integer("minutes_per_period").notNull(),

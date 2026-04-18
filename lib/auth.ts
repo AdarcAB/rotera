@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "./db/client";
 import {
   users,
@@ -42,7 +42,10 @@ function decodeSession(raw: string): { userId: number } | null {
   if (parts.length !== 3) return null;
   const [userIdStr, tsStr, sig] = parts;
   const expected = sign(`${userIdStr}.${tsStr}`);
-  if (sig !== expected) return null;
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length) return null;
+  if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
   const userId = Number(userIdStr);
   const ts = Number(tsStr);
   if (!Number.isFinite(userId) || !Number.isFinite(ts)) return null;
@@ -161,6 +164,8 @@ export async function consumeLoginToken(token: string): Promise<number | null> {
   return row.userId;
 }
 
+const OTP_MAX_ATTEMPTS = 5;
+
 export async function consumeOtp(
   email: string,
   otp: string
@@ -175,17 +180,39 @@ export async function consumeOtp(
     .limit(1);
   if (userRows.length === 0) return null;
   const user = userRows[0];
+  // Only the most recent login token is valid. Requesting a new link
+  // effectively invalidates older OTPs — defends against brute-force by
+  // limiting the attack surface to a single rate-limited token.
   const rows = await db
     .select()
     .from(authTokens)
-    .where(
-      and(eq(authTokens.userId, user.id), eq(authTokens.otp, cleanOtp))
-    )
+    .where(eq(authTokens.userId, user.id))
+    .orderBy(desc(authTokens.createdAt))
     .limit(1);
   if (rows.length === 0) return null;
   const row = rows[0];
   if (row.usedAt) return null;
   if (row.expiresAt.getTime() < Date.now()) return null;
+  if (row.attempts >= OTP_MAX_ATTEMPTS) {
+    await db
+      .update(authTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(authTokens.id, row.id));
+    return null;
+  }
+  if (!row.otp) return null;
+  const expected = Buffer.from(row.otp);
+  const provided = Buffer.from(cleanOtp);
+  if (
+    expected.length !== provided.length ||
+    !crypto.timingSafeEqual(expected, provided)
+  ) {
+    await db
+      .update(authTokens)
+      .set({ attempts: row.attempts + 1 })
+      .where(eq(authTokens.id, row.id));
+    return null;
+  }
   await db
     .update(authTokens)
     .set({ usedAt: new Date() })

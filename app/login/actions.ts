@@ -1,26 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import {
-  consumeOtp,
-  createLoginToken,
-  findOrCreateUserByEmail,
-  setSession,
-} from "@/lib/auth";
+import { consumeOtp, createLoginToken, setSession } from "@/lib/auth";
 import { sendMagicLinkEmail } from "@/lib/email";
-
-const EMAIL_ONLY_LOGIN = false;
 
 export async function requestLoginLink(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   let sent: "resend" | "console";
   let normalized: string;
   try {
-    if (EMAIL_ONLY_LOGIN) {
-      const { userId } = await findOrCreateUserByEmail(email);
-      await setSession(userId);
-      redirect("/dashboard");
-    }
     const { token, otp, normalizedEmail } = await createLoginToken(email);
     normalized = normalizedEmail;
     const base = process.env.APP_URL ?? "http://localhost:3000";

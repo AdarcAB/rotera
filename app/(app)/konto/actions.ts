@@ -46,9 +46,10 @@ export async function deleteAccount(formData: FormData) {
     }
   }
 
-  // Deleting the user cascade-deletes authTokens, formations, and any
-  // remaining memberships. Shared teams survive because teams.user_id is now
-  // "set null" on user delete.
+  // Deleting the user cascade-deletes authTokens and remaining memberships.
+  // Shared teams and their formations survive (teams.user_id and
+  // formations.user_id are both ON DELETE SET NULL) so other members keep
+  // working matches.
   await db.delete(users).where(eq(users.id, user.id));
   await clearSession();
   redirect("/?deleted=1");

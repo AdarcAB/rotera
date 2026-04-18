@@ -164,10 +164,21 @@ export async function renamePlayer(
   const userId = await requireUserId();
   await assertTeamAccessible(teamId, userId);
   const parsed = capitalizeName(PlayerName.parse(name));
-  await db
-    .update(players)
-    .set({ name: parsed })
-    .where(and(eq(players.id, playerId), eq(players.teamId, teamId)));
+  // Players are org-owned. Verify the player belongs to this team's org
+  // (the legacy players.team_id column is no longer a reliable filter).
+  const [team] = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1);
+  if (!team?.orgTeamId) throw new Error("Laget saknar organisation");
+  const [player] = await db
+    .select()
+    .from(players)
+    .where(and(eq(players.id, playerId), eq(players.orgTeamId, team.orgTeamId)))
+    .limit(1);
+  if (!player) throw new Error("Spelare saknas");
+  await db.update(players).set({ name: parsed }).where(eq(players.id, playerId));
   revalidatePath(`/teams/${teamId}`);
 }
 
