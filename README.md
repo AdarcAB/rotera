@@ -7,8 +7,8 @@ rotera positioner och exekvera byten — i linje med SvFF:s speltidsgaranti.
 
 Live: **https://rotera.online**
 
-Byggt och driftat gratis av Adarc AB som ett bidrag
-till svensk ungdomsidrott.
+Byggt och driftat gratis av Adarc AB som ett bidrag till svensk
+ungdomsidrott.
 
 ---
 
@@ -109,7 +109,7 @@ persisteras via Server Actions.
 
 ## Bidrag
 
-PR:s välkomna. Ingen CLA. Bugg? Öppna en issue eller öppna en issue.
+PR:s välkomna. Ingen CLA. Bugg? Öppna en issue.
 
 ---
 
