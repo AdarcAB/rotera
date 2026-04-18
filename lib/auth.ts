@@ -262,13 +262,19 @@ export async function currentOrgId(): Promise<number> {
       targetId = orgs[0];
     }
   }
-  c.set(ORG_COOKIE_NAME, String(targetId), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
-  });
+  try {
+    c.set(ORG_COOKIE_NAME, String(targetId), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_DAYS * 24 * 60 * 60,
+    });
+  } catch {
+    // cookies() is read-only when called from a Server Component. We still
+    // return the correct org id; the cookie will be refreshed the next time
+    // we're in a Server Action context (e.g. on switch).
+  }
   return targetId;
 }
 
