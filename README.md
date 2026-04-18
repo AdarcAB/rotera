@@ -47,7 +47,7 @@ ungdomsidrott.
 ## Kom igång lokalt
 
 ```bash
-git clone https://github.com/andsj073/rotera.git
+git clone https://github.com/AdarcAB/rotera.git
 cd rotera
 npm install
 

@@ -75,11 +75,11 @@ export default function AboutPage() {
             Koden finns på{" "}
             <a
               className="text-emerald-700 hover:underline"
-              href="https://github.com/andsj073/rotera"
+              href="https://github.com/AdarcAB/rotera"
               target="_blank"
               rel="noreferrer"
             >
-              github.com/andsj073/rotera
+              github.com/AdarcAB/rotera
             </a>
             . Issues och pull requests välkomnas.
           </p>

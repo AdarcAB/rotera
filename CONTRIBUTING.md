@@ -6,7 +6,7 @@ felrapporter och pull requests.
 ## Kom igång
 
 ```bash
-git clone https://github.com/andsj073/rotera.git
+git clone https://github.com/AdarcAB/rotera.git
 cd rotera
 npm install
 cp .env.example .env.local
@@ -63,5 +63,5 @@ Vi säger ja till:
 
 ## Frågor?
 
-Kort: [issue](https://github.com/andsj073/rotera/issues).  
+Kort: [issue](https://github.com/AdarcAB/rotera/issues).  
 Privat: [hej@adarc.se](mailto:hej@adarc.se).
