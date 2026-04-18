@@ -25,47 +25,46 @@ export default async function LandingPage() {
       <main className="flex-1">
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute -top-32 -right-32 w-[520px] h-[520px] rounded-full border-2 border-dashed border-emerald-200/70" />
-            <div className="absolute -bottom-48 -left-48 w-[640px] h-[640px] rounded-full border-2 border-dashed border-emerald-100" />
+            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full border-2 border-dashed border-emerald-200/70" />
+            <div className="absolute -bottom-56 -left-56 w-[680px] h-[680px] rounded-full border-2 border-dashed border-emerald-100" />
           </div>
 
-          <div className="relative max-w-5xl mx-auto px-6 pt-16 md:pt-24 pb-20 grid md:grid-cols-[1.2fr_1fr] gap-10 items-center">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-medium text-emerald-900 mb-5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                För barn- och ungdomstränare
-              </div>
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.05]">
-                Byten som faktiskt blir <span className="text-emerald-700">rättvisa</span>.
-              </h1>
-              <p className="mt-5 text-lg md:text-xl text-neutral-700 leading-relaxed max-w-xl">
-                Rotera planerar speltid och byten åt dig — med SvFF:s
-                speltidsgaranti i ryggraden. Sen hjälper appen dig exekvera det
-                vid sidlinjen.
-              </p>
+          <div className="relative max-w-3xl mx-auto px-6 pt-20 md:pt-28 pb-20 text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-medium text-emerald-900 mb-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              För barn- och ungdomstränare
+            </div>
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.05]">
+              Mindre kaos. <br className="md:hidden" />
+              Mer{" "}
+              <span className="bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                rättvisa
+              </span>
+              .
+            </h1>
+            <p className="mt-5 text-lg md:text-xl text-neutral-700 leading-relaxed max-w-2xl mx-auto">
+              Rotera planerar speltid och byten åt dig — med SvFF:s
+              speltidsgaranti i ryggraden. Sen hjälper appen dig exekvera det
+              vid sidlinjen.
+            </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/login"
-                  className="inline-flex h-12 px-6 items-center justify-center rounded-md bg-primary text-primary-foreground font-semibold hover:opacity-90 shadow-sm"
-                >
-                  Kom igång gratis
-                </Link>
-                <a
-                  href="#funktioner"
-                  className="inline-flex h-12 px-6 items-center justify-center rounded-md border border-border text-neutral-800 font-medium hover:bg-neutral-50"
-                >
-                  Så funkar det
-                </a>
-              </div>
-
-              <div className="mt-6 text-xs text-neutral-500">
-                Webbapp · Installeras som PWA på iPhone och Android · Svenska
-              </div>
+            <div className="mt-8 flex flex-wrap gap-3 justify-center">
+              <Link
+                href="/login"
+                className="inline-flex h-12 px-6 items-center justify-center rounded-md bg-primary text-primary-foreground font-semibold hover:opacity-90 shadow-sm"
+              >
+                Kom igång gratis
+              </Link>
+              <a
+                href="#funktioner"
+                className="inline-flex h-12 px-6 items-center justify-center rounded-md border border-border text-neutral-800 font-medium hover:bg-neutral-50"
+              >
+                Så funkar det
+              </a>
             </div>
 
-            <div className="hidden md:block">
-              <PhonePreview />
+            <div className="mt-6 text-xs text-neutral-500">
+              Webbapp · Installeras som PWA på iPhone och Android · Svenska
             </div>
           </div>
         </section>
@@ -77,11 +76,11 @@ export default async function LandingPage() {
           <div className="max-w-5xl mx-auto px-6 py-16 grid md:grid-cols-3 gap-6">
             <Feature
               title="Speltidsgaranti"
-              body="Optimeraren fördelar minuter jämnt så alla får ungefär lika mycket speltid över en match."
+              body="Algoritmen fördelar minuter jämnt så alla får ungefär lika mycket speltid över en match."
             />
             <Feature
               title="Positionsrotation"
-              body="Spelare får sina önskade positioner när det går — och testa andra roller på ett rättvist sätt."
+              body="Spelare får sina önskade positioner när det går — och testar andra roller på ett rättvist sätt."
             />
             <Feature
               title="Live-läge för sidlinjen"
@@ -91,42 +90,47 @@ export default async function LandingPage() {
         </section>
 
         <section className="border-t border-border bg-white">
-          <div className="max-w-4xl mx-auto px-6 py-16">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-8">
-              Så funkar en match
-            </h2>
-            <ol className="space-y-5">
-              <Step
-                n={1}
-                title="Skapa lag och spelare"
-                body="Bara namnen. Inget krångel."
-              />
-              <Step
-                n={2}
-                title="Välj spelform"
-                body="SvFF 3-, 5-, 7- och 9-manna är förifyllda. Justera positioner och byten som du vill."
-              />
-              <Step
-                n={3}
-                title="Kalla till match"
-                body="Bocka spelare. Per spelare: välj vilka positioner de kan spela — och vilka de helst vill spela."
-              />
-              <Step
-                n={4}
-                title="Generera schema"
-                body="Optimeraren kör 1500 varianter och plockar den som bäst uppfyller speltidsgaranti + önskemål. Gillar du inte — klicka regenerera."
-              />
-              <Step
-                n={5}
-                title="Live-läge"
-                body="Stor timer, röd banner 10s före byte, full-skärm byte-modal. Pausa, hoppa till paus, eller byt ad hoc. Allt sparas automatiskt."
-              />
-              <Step
-                n={6}
-                title="Se faktisk speltid efter matchen"
-                body="Summering per spelare: minuter och positioner. Lätt att visa föräldrar."
-              />
-            </ol>
+          <div className="max-w-4xl mx-auto px-6 py-16 grid md:grid-cols-[1.2fr_auto] gap-10 items-center">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-8">
+                Så funkar en match
+              </h2>
+              <ol className="space-y-5">
+                <Step
+                  n={1}
+                  title="Skapa lag och spelare"
+                  body="Bara namnen. Inget krångel."
+                />
+                <Step
+                  n={2}
+                  title="Välj spelform"
+                  body="SvFF 3-, 5-, 7- och 9-manna är förifyllda. Justera positioner och byten som du vill."
+                />
+                <Step
+                  n={3}
+                  title="Skapa din match"
+                  body="Bocka spelare. Per spelare: välj vilka positioner de kan spela — och vilka de helst vill spela."
+                />
+                <Step
+                  n={4}
+                  title="Generera schema"
+                  body="Vår algoritm provar många varianter och plockar den som bäst uppfyller speltidsgaranti + önskemål. Gillar du inte — klicka regenerera."
+                />
+                <Step
+                  n={5}
+                  title="Live-läge"
+                  body="Stor timer, röd banner 10s före byte, full-skärm byte-modal. Pausa, hoppa till paus, eller byt ad hoc. Allt sparas automatiskt."
+                />
+                <Step
+                  n={6}
+                  title="Se faktisk speltid efter matchen"
+                  body="Summering per spelare: minuter och positioner. Lätt att visa föräldrar."
+                />
+              </ol>
+            </div>
+            <div className="hidden md:flex justify-center">
+              <PhonePreview />
+            </div>
           </div>
         </section>
 
@@ -136,7 +140,7 @@ export default async function LandingPage() {
               Kom igång på en minut
             </h2>
             <p className="mt-3 text-neutral-700 max-w-xl mx-auto">
-              Ingen installation. Logga in med e-post och skapa ditt första lag.
+              Logga in med e-post och skapa ditt första lag.
             </p>
             <div className="mt-6">
               <Link
@@ -194,17 +198,14 @@ function Step({
   );
 }
 
-/** Stylized phone mockup of the live view — pure CSS/SVG, no assets. */
 function PhonePreview() {
   return (
-    <div className="relative mx-auto w-[280px] h-[560px]">
+    <div className="relative mx-auto w-[260px] h-[520px]">
       <div className="absolute inset-0 rounded-[40px] bg-neutral-900 shadow-xl" />
       <div className="absolute inset-[8px] rounded-[32px] bg-white overflow-hidden flex flex-col">
         <div className="h-7 bg-neutral-900" />
         <div className="flex-1 p-4 flex flex-col">
-          <div className="text-[10px] text-neutral-500">
-            Period 2 av 3
-          </div>
+          <div className="text-[10px] text-neutral-500">Period 2 av 3</div>
           <div className="font-mono text-5xl font-bold tracking-tight text-center mt-3">
             07:12
           </div>
@@ -212,19 +213,15 @@ function PhonePreview() {
             Nästa byte: 14′ (om 4:12)
           </div>
 
-          <div className="relative mt-4 mx-auto w-[180px] h-[230px] rounded-md bg-emerald-600 border-2 border-white/80 overflow-hidden">
+          <div className="relative mt-4 mx-auto w-[170px] h-[220px] rounded-md bg-emerald-600 border-2 border-white/80 overflow-hidden">
             <div className="absolute top-1/2 left-0 right-0 border-t border-white/60" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 border border-white/60 rounded-full" />
-            {/* forwards */}
             <Dot top="14%" left="50%" label="FW" />
-            {/* mid */}
             <Dot top="32%" left="22%" label="VM" />
             <Dot top="32%" left="50%" label="CM" />
             <Dot top="32%" left="78%" label="HM" />
-            {/* backs */}
             <Dot top="60%" left="30%" label="VB" />
             <Dot top="60%" left="70%" label="HB" />
-            {/* MV */}
             <Dot top="82%" left="50%" label="MV" />
           </div>
 

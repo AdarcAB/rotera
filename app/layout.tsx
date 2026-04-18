@@ -23,14 +23,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Rotera",
-    title: "Rotera — byten som faktiskt blir rättvisa",
+    title: "Rotera — mindre kaos, mer rättvisa",
     description:
       "Speltidsgaranti, positionsrotation och live-läge för barn- och ungdomstränare.",
     locale: "sv_SE",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Rotera — byten som faktiskt blir rättvisa",
+    title: "Rotera — mindre kaos, mer rättvisa",
     description:
       "Speltidsgaranti, positionsrotation och live-läge för barn- och ungdomstränare.",
   },

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Rotera — byten som faktiskt blir rättvisa";
+export const alt = "Rotera — mindre kaos, mer rättvisa";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -80,14 +80,14 @@ export default async function OgImage() {
 
         <div
           style={{
-            fontSize: 92,
+            fontSize: 104,
             fontWeight: 800,
-            lineHeight: 1.05,
-            maxWidth: 960,
+            lineHeight: 1.0,
+            maxWidth: 980,
             letterSpacing: "-0.02em",
           }}
         >
-          Byten som faktiskt blir rättvisa.
+          Mindre kaos. Mer rättvisa.
         </div>
 
         <div
