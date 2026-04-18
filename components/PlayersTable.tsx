@@ -1,16 +1,24 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
+  assignExistingPlayerToTeam,
   createPlayer,
   deletePlayer,
   renamePlayer,
+  searchOrgPlayers,
 } from "@/app/(app)/teams/actions";
 import { capitalizeName } from "@/lib/utils";
 
 type Row = {
   id: number;
   name: string;
+};
+
+type Suggestion = {
+  id: number;
+  name: string;
+  inTeamIds: number[];
 };
 
 export function PlayersTable({
@@ -22,23 +30,58 @@ export function PlayersTable({
 }) {
   const [rows, setRows] = useState<Row[]>(initialPlayers);
   const [draft, setDraft] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [, startTransition] = useTransition();
   const draftRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const q = draft.trim();
+    if (q.length < 1) {
+      setSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await searchOrgPlayers(q);
+        setSuggestions(res);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [draft]);
 
   const addFromDraft = () => {
     const name = capitalizeName(draft);
     if (!name) return;
     setDraft("");
+    setSuggestions([]);
     startTransition(async () => {
       try {
         const created = await createPlayer(teamId, name);
         setRows((prev) => [...prev, created]);
         draftRef.current?.focus();
       } catch {
-        // leave draft empty; user can retype
+        /* leave draft empty */
       }
     });
   };
+
+  const addExisting = (s: Suggestion) => {
+    setDraft("");
+    setSuggestions([]);
+    // Optimistic add
+    if (!rows.some((r) => r.id === s.id)) {
+      setRows((prev) => [...prev, { id: s.id, name: s.name }]);
+    }
+    startTransition(async () => {
+      await assignExistingPlayerToTeam(teamId, s.id).catch(() => {});
+      draftRef.current?.focus();
+    });
+  };
+
+  const rowIds = new Set(rows.map((r) => r.id));
+  const filteredSuggestions = suggestions.filter((s) => !rowIds.has(s.id));
 
   const rename = (id: number, newName: string) => {
     const name = capitalizeName(newName);
@@ -103,12 +146,18 @@ export function PlayersTable({
             </tr>
           ))}
           <tr className="border-t border-border">
-            <td className="py-1 pr-2">
+            <td className="py-1 pr-2 relative">
               <input
                 ref={draftRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onBlur={addFromDraft}
+                onBlur={() => {
+                  // Delay blur so suggestion clicks fire first
+                  setTimeout(() => {
+                    if (document.activeElement !== draftRef.current)
+                      addFromDraft();
+                  }, 120);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -118,6 +167,31 @@ export function PlayersTable({
                 placeholder="+ Lägg till spelare"
                 className="w-full h-9 px-2 bg-transparent border border-transparent hover:border-border focus:border-border focus:bg-white rounded-md outline-none text-sm"
               />
+              {filteredSuggestions.length > 0 ? (
+                <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-white border border-border rounded-md shadow-sm max-h-64 overflow-auto">
+                  {filteredSuggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addExisting(s);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-sm flex items-center justify-between border-b border-border last:border-b-0"
+                    >
+                      <span>{s.name}</span>
+                      <span className="text-xs text-neutral-500">
+                        {s.inTeamIds.length > 0
+                          ? `finns i ${s.inTeamIds.length} lag`
+                          : "inte i något lag än"}
+                      </span>
+                    </button>
+                  ))}
+                  <div className="px-3 py-2 text-xs text-neutral-500 bg-neutral-50">
+                    Tryck Enter för att lägga till som ny.
+                  </div>
+                </div>
+              ) : null}
             </td>
             <td />
           </tr>

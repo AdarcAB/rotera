@@ -9,6 +9,7 @@ import {
   matches,
   players,
   teamMembers,
+  teamPlayers,
   teams,
 } from "@/lib/db/schema";
 import { Button } from "@/components/ui/Button";
@@ -53,8 +54,9 @@ export default async function TeamPage({
 
   const playerList = await db
     .select({ id: players.id, name: players.name })
-    .from(players)
-    .where(eq(players.teamId, teamId))
+    .from(teamPlayers)
+    .innerJoin(players, eq(players.id, teamPlayers.playerId))
+    .where(eq(teamPlayers.teamId, teamId))
     .orderBy(players.name);
 
   const { members, invites } = await listTeamMembersAndInvites(teamId);

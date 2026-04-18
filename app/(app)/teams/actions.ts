@@ -177,9 +177,12 @@ export async function deletePlayer(
 ): Promise<void> {
   const userId = await requireUserId();
   await assertTeamAccessible(teamId, userId);
+  // Remove from this team's roster only. Player stays in the org.
   await db
-    .delete(players)
-    .where(and(eq(players.id, playerId), eq(players.teamId, teamId)));
+    .delete(teamPlayers)
+    .where(
+      and(eq(teamPlayers.teamId, teamId), eq(teamPlayers.playerId, playerId))
+    );
   revalidatePath(`/teams/${teamId}`);
 }
 
