@@ -59,6 +59,90 @@ function applyAdHocSubsForPeriod(
   return lineup;
 }
 
+function computeMinutesPlayed(
+  schedule: Schedule,
+  live: LiveState,
+  minutesPerPeriod: number,
+  elapsedSecInCurrent: number
+): Record<number, number> {
+  const result: Record<number, number> = {};
+  const curIdx = live.currentPeriodIndex;
+
+  for (let pi = 0; pi <= curIdx; pi++) {
+    const period = schedule.periods[pi];
+    if (!period) continue;
+
+    const isCurrent = pi === curIdx;
+    const isPre = isCurrent && live.status === "pre_period";
+    const periodEndMin = isCurrent
+      ? isPre
+        ? 0
+        : Math.min(minutesPerPeriod, elapsedSecInCurrent / 60)
+      : minutesPerPeriod;
+    if (periodEndMin <= 0) continue;
+
+    type Ev = {
+      minute: number;
+      positionId: number;
+      outPlayerId: number;
+      inPlayerId: number;
+    };
+    const events: Ev[] = [];
+
+    const completedInPeriod = (live.completedSubPoints ?? []).filter(
+      (c) => c.periodIndex === pi
+    );
+    const sortedSubs = [...period.subPoints].sort(
+      (a, b) => a.minuteInPeriod - b.minuteInPeriod
+    );
+    for (let i = 0; i < sortedSubs.length; i++) {
+      const sp = sortedSubs[i];
+      const completion = completedInPeriod.find((c) => c.subPointIndex === i);
+      if (!completion) continue;
+      const applied = completion.appliedPositionIds;
+      for (const c of sp.changes) {
+        if (applied !== undefined && !applied.includes(c.positionId)) continue;
+        events.push({
+          minute: sp.minuteInPeriod,
+          positionId: c.positionId,
+          outPlayerId: c.outPlayerId,
+          inPlayerId: c.inPlayerId,
+        });
+      }
+    }
+    for (const sub of live.adHocSubs ?? []) {
+      if (sub.periodIndex !== pi) continue;
+      events.push({
+        minute: sub.minuteInPeriod,
+        positionId: sub.positionId,
+        outPlayerId: sub.outPlayerId,
+        inPlayerId: sub.inPlayerId,
+      });
+    }
+    events.sort((a, b) => a.minute - b.minute);
+
+    const onFieldSince = new Map<number, number>();
+    for (const slot of period.startLineup) onFieldSince.set(slot.playerId, 0);
+
+    for (const ev of events) {
+      if (ev.minute > periodEndMin) break;
+      const outStart = onFieldSince.get(ev.outPlayerId);
+      if (outStart !== undefined) {
+        result[ev.outPlayerId] =
+          (result[ev.outPlayerId] ?? 0) + (ev.minute - outStart);
+        onFieldSince.delete(ev.outPlayerId);
+      }
+      onFieldSince.set(ev.inPlayerId, ev.minute);
+    }
+
+    for (const [pid, since] of onFieldSince.entries()) {
+      result[pid] = (result[pid] ?? 0) + Math.max(0, periodEndMin - since);
+    }
+  }
+
+  return result;
+}
+
 function buildCurrentLineup(
   schedule: Schedule,
   live: LiveState,
@@ -365,6 +449,11 @@ export function LiveMatch({
   const onFieldIds = new Set(currentLineup.values());
   const benchIds = allPlayerIds.filter((id) => !onFieldIds.has(id));
 
+  const minutesByPlayer = useMemo(
+    () => computeMinutesPlayed(schedule, live, minutesPerPeriod, elapsedSec),
+    [schedule, live, minutesPerPeriod, elapsedSec]
+  );
+
   const showSubModal =
     live.status === "running" &&
     nextSub !== null &&
@@ -429,6 +518,7 @@ export function LiveMatch({
           positionMap={positionMap}
           playerMap={playerMap}
           schedule={schedule}
+          minutesByPlayer={minutesByPlayer}
           onPause={handlePause}
           onResume={handleResume}
           onJumpToBreak={handleJumpToBreak}
@@ -589,6 +679,7 @@ function RunningView({
   positionMap,
   playerMap,
   schedule,
+  minutesByPlayer,
   onPause,
   onResume,
   onJumpToBreak,
@@ -605,6 +696,7 @@ function RunningView({
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
   schedule: Schedule;
+  minutesByPlayer: Record<number, number>;
   onPause: () => void;
   onResume: () => void;
   onJumpToBreak: () => void;
@@ -648,6 +740,7 @@ function RunningView({
           }))}
           positionMap={positionMap}
           playerMap={playerMap}
+          minutesByPlayer={minutesByPlayer}
           onTap={onTapFieldPlayer}
         />
       </div>
@@ -1109,11 +1202,13 @@ function Pitch({
   lineup,
   positionMap,
   playerMap,
+  minutesByPlayer,
   onTap,
 }: {
   lineup: { positionId: number; playerId: number }[];
   positionMap: Record<number, { name: string; abbreviation: string }>;
   playerMap: Record<number, string>;
+  minutesByPlayer?: Record<number, number>;
   onTap?: (positionId: number) => void;
 }) {
   const count = lineup.length;
@@ -1140,13 +1235,22 @@ function Pitch({
         const colCount = rows[row];
         const colLeft = ((col + 0.5) / colCount) * 100;
         const isButton = !!onTap;
+        const mins =
+          minutesByPlayer !== undefined
+            ? Math.floor(minutesByPlayer[slot.playerId] ?? 0)
+            : null;
         const content = (
           <>
             <div className="w-12 h-12 rounded-full bg-white text-emerald-900 font-bold text-sm flex items-center justify-center shadow">
               {positionMap[slot.positionId]?.abbreviation ?? "?"}
             </div>
-            <div className="text-xs text-white font-medium mt-1 max-w-[96px] truncate px-1 bg-black/40 rounded">
+            <div className="text-xs text-white font-medium mt-1 max-w-[104px] truncate px-1 bg-black/40 rounded">
               {playerMap[slot.playerId] ?? "?"}
+              {mins !== null ? (
+                <span className="ml-1 text-[10px] font-mono text-white/70">
+                  {mins}′
+                </span>
+              ) : null}
             </div>
           </>
         );
