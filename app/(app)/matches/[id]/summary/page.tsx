@@ -21,6 +21,7 @@ import {
   deltaMinutes,
 } from "@/lib/stats";
 import { matchTitle } from "@/lib/match-title";
+import { statusBadgeClass, statusLabel } from "@/lib/match-status";
 
 export default async function SummaryPage({
   params,
@@ -134,9 +135,16 @@ export default async function SummaryPage({
           </span>
         ) : null}
       </h1>
-      <p className="text-neutral-600 mb-6">
-        Status: <strong>{match.status}</strong> · optimal speltid:{" "}
-        <span className="font-mono">{Math.round(optimal)}′</span> per spelare
+      <p className="text-neutral-600 mb-6 flex items-center gap-2 flex-wrap">
+        <span
+          className={`text-xs px-2 py-0.5 rounded border ${statusBadgeClass(match.status)}`}
+        >
+          {statusLabel(match.status)}
+        </span>
+        <span>
+          Optimal speltid:{" "}
+          <span className="font-mono">{Math.round(optimal)}′</span> per spelare
+        </span>
       </p>
 
       <Card>

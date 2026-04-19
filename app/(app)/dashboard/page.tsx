@@ -1,46 +1,68 @@
 import Link from "next/link";
-import { desc, eq, inArray, or } from "drizzle-orm";
-import { requireUserId, userOrgIds, userTeamIds } from "@/lib/auth";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
+import {
+  currentOrgId,
+  requireUserId,
+  userOrgIds,
+  userTeamIds,
+} from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, teams, players } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { InstallAppHint } from "@/components/InstallAppHint";
 import { unvotedFeatureCount } from "../forslag/actions";
 import { matchTitle } from "@/lib/match-title";
+import { statusBadgeClass, statusLabel } from "@/lib/match-status";
 
 export default async function Dashboard() {
   const userId = await requireUserId();
-  const [teamIds, orgIds] = await Promise.all([
+  const [teamIds, orgIds, activeOrgId] = await Promise.all([
     userTeamIds(userId),
     userOrgIds(userId),
+    currentOrgId(),
   ]);
-  const [teamRows, matchRows] = await Promise.all([
-    teamIds.length === 0
-      ? Promise.resolve([])
-      : db.select().from(teams).where(inArray(teams.id, teamIds)),
-    teamIds.length === 0 && orgIds.length === 0
-      ? Promise.resolve([])
-      : db
-          .select()
-          .from(matches)
-          .where(
-            or(
-              teamIds.length > 0 ? inArray(matches.teamId, teamIds) : undefined,
-              orgIds.length > 0 ? inArray(matches.orgTeamId, orgIds) : undefined
+  const [teamRows, matchRows, playedMatchCountRow, orgPlayerCountRow] =
+    await Promise.all([
+      teamIds.length === 0
+        ? Promise.resolve([])
+        : db.select().from(teams).where(inArray(teams.id, teamIds)),
+      teamIds.length === 0 && orgIds.length === 0
+        ? Promise.resolve([])
+        : db
+            .select()
+            .from(matches)
+            .where(
+              and(
+                or(
+                  teamIds.length > 0
+                    ? inArray(matches.teamId, teamIds)
+                    : undefined,
+                  orgIds.length > 0
+                    ? inArray(matches.orgTeamId, orgIds)
+                    : undefined
+                ),
+                ne(matches.status, "draft")
+              )
             )
+            .orderBy(desc(matches.createdAt))
+            .limit(5),
+      db
+        .select({ id: matches.id })
+        .from(matches)
+        .where(
+          and(
+            eq(matches.orgTeamId, activeOrgId),
+            eq(matches.status, "finished")
           )
-          .orderBy(desc(matches.createdAt))
-          .limit(5),
-  ]);
+        ),
+      db
+        .select({ id: players.id })
+        .from(players)
+        .where(eq(players.orgTeamId, activeOrgId)),
+    ]);
 
-  const playerCount = teamRows.length
-    ? (
-        await db
-          .select()
-          .from(players)
-          .where(eq(players.teamId, teamRows[0].id))
-      ).length
-    : 0;
+  const playedMatchCount = playedMatchCountRow.length;
+  const orgPlayerCount = orgPlayerCountRow.length;
 
   const unvotedCount = await unvotedFeatureCount();
 
@@ -67,16 +89,16 @@ export default async function Dashboard() {
       ) : (
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           <Card>
-            <div className="text-sm text-neutral-600">Lag</div>
+            <div className="text-sm text-neutral-600">Lag i org</div>
             <div className="text-2xl font-bold">{teamRows.length}</div>
           </Card>
           <Card>
-            <div className="text-sm text-neutral-600">Spelare (första laget)</div>
-            <div className="text-2xl font-bold">{playerCount}</div>
+            <div className="text-sm text-neutral-600">Spelare i org</div>
+            <div className="text-2xl font-bold">{orgPlayerCount}</div>
           </Card>
           <Card>
-            <div className="text-sm text-neutral-600">Senaste matcher</div>
-            <div className="text-2xl font-bold">{matchRows.length}</div>
+            <div className="text-sm text-neutral-600">Spelade matcher</div>
+            <div className="text-2xl font-bold">{playedMatchCount}</div>
           </Card>
         </div>
       )}
@@ -108,12 +130,17 @@ export default async function Dashboard() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="text-sm text-neutral-600">
-                    {m.playedAt
-                      ? new Date(m.playedAt).toLocaleDateString("sv-SE")
-                      : "Utan datum"}
-                    {" · "}
-                    <span className="uppercase">{m.status}</span>
+                  <div className="text-sm text-neutral-600 flex items-center gap-2 mt-0.5">
+                    <span>
+                      {m.playedAt
+                        ? new Date(m.playedAt).toLocaleDateString("sv-SE")
+                        : "Utan datum"}
+                    </span>
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded border ${statusBadgeClass(m.status)}`}
+                    >
+                      {statusLabel(m.status)}
+                    </span>
                   </div>
                 </div>
                 <Link

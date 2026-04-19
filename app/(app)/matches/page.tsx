@@ -14,6 +14,7 @@ import { Field, Input, Label } from "@/components/ui/Input";
 import { createMatch } from "./actions";
 import { matchTitle } from "@/lib/match-title";
 import { MatchCreateForm } from "@/components/MatchCreateForm";
+import { statusBadgeClass, statusLabel } from "@/lib/match-status";
 
 function todayIso(): string {
   const d = new Date();
@@ -117,11 +118,17 @@ export default async function MatchesPage() {
                           </span>
                         ) : null}
                       </div>
-                      <div className="text-xs text-neutral-600">
-                        {m.playedAt
-                          ? new Date(m.playedAt).toLocaleDateString("sv-SE")
-                          : "Utan datum"}{" "}
-                        · {m.status}
+                      <div className="text-xs text-neutral-600 flex items-center gap-2 mt-0.5">
+                        <span>
+                          {m.playedAt
+                            ? new Date(m.playedAt).toLocaleDateString("sv-SE")
+                            : "Utan datum"}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded border ${statusBadgeClass(m.status)}`}
+                        >
+                          {statusLabel(m.status)}
+                        </span>
                       </div>
                     </div>
                     <Link
