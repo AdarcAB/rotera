@@ -59,7 +59,7 @@ export default async function OrgsPage() {
                   id="name"
                   name="name"
                   required
-                  placeholder="t.ex. HBIF P16"
+                  placeholder="t.ex. Ankeborgs IF P16"
                 />
               </Field>
               <Field>

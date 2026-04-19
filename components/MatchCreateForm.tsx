@@ -97,7 +97,7 @@ export function MatchCreateForm({
           id="opponent"
           name="opponent"
           required
-          placeholder="AIK P12"
+          placeholder="Ankeborg P12"
         />
       </Field>
 
