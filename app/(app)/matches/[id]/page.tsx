@@ -215,56 +215,9 @@ export default async function MatchPage({
         </details>
       </Card>
 
-      <Card className="mt-6 sticky bottom-0 z-10 max-h-[calc(100vh-11rem)] overflow-y-auto shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)]">
-        <div className="flex flex-wrap gap-3 items-center justify-between">
+      {schedule ? (
+        <Card className="mt-6">
           <CardTitle>Schema</CardTitle>
-          {prereqs.ok ? (
-            <form action={generateScheduleAction}>
-              <input type="hidden" name="matchId" value={match.id} />
-              <SubmitButton
-                variant={schedule ? "secondary" : "primary"}
-                pendingLabel="Genererar…"
-              >
-                {schedule ? "Regenerera" : "Generera schema"}
-              </SubmitButton>
-            </form>
-          ) : (
-            <Button type="button" disabled variant="secondary">
-              Generera schema
-            </Button>
-          )}
-        </div>
-
-        {sp.genError ? (
-          <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900 whitespace-pre-wrap">
-            {sp.genError}
-          </div>
-        ) : null}
-
-        {sp.genOk && schedule ? (
-          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-            Schema genererat.
-          </div>
-        ) : null}
-
-        {!prereqs.ok ? (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <div className="font-medium mb-1">
-              Det saknas något innan vi kan generera ett schema:
-            </div>
-            <ul className="list-disc ml-5 space-y-0.5">
-              {prereqs.reasons.map((r, i) => (
-                <li key={i}>{r}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {!schedule ? (
-          <p className="text-sm text-neutral-600 mt-3">
-            Inget schema genererat ännu. Välj spelare och tryck på knappen.
-          </p>
-        ) : (
           <ScheduleView
             schedule={schedule}
             positions={posList}
@@ -289,7 +242,60 @@ export default async function MatchPage({
               />
             }
           />
-        )}
+        </Card>
+      ) : null}
+
+      {sp.genError ? (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900 whitespace-pre-wrap">
+          {sp.genError}
+        </div>
+      ) : null}
+
+      {sp.genOk && schedule ? (
+        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          Schema genererat.
+        </div>
+      ) : null}
+
+      {!prereqs.ok ? (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="font-medium mb-1">
+            Det saknas något innan vi kan generera ett schema:
+          </div>
+          <ul className="list-disc ml-5 space-y-0.5">
+            {prereqs.reasons.map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <Card className="mt-6 sticky bottom-0 z-10 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)]">
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <CardTitle>
+            {schedule ? "Regenerera schema" : "Generera schema"}
+          </CardTitle>
+          {prereqs.ok ? (
+            <form action={generateScheduleAction}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <SubmitButton
+                variant={schedule ? "secondary" : "primary"}
+                pendingLabel="Genererar…"
+              >
+                {schedule ? "Regenerera" : "Generera schema"}
+              </SubmitButton>
+            </form>
+          ) : (
+            <Button type="button" disabled variant="secondary">
+              Generera schema
+            </Button>
+          )}
+        </div>
+        {!schedule && prereqs.ok ? (
+          <p className="text-sm text-neutral-600 mt-2">
+            Välj spelare och tryck på knappen.
+          </p>
+        ) : null}
       </Card>
 
       <Card className="mt-10 border-red-100">
