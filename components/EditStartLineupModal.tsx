@@ -154,11 +154,6 @@ export function EditStartLineupModal({
                       <span className="text-neutral-700 text-sm">
                         {pos.name}
                       </span>
-                      {pos.isGoalkeeper ? (
-                        <span className="ml-1 text-xs text-neutral-500">
-                          (MV)
-                        </span>
-                      ) : null}
                     </td>
                     <td className="py-2">
                       <select
