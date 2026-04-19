@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { regenerateScheduleWithStart } from "@/app/(app)/matches/actions";
 
@@ -37,19 +37,24 @@ export function EditStartLineupModal({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const assignedPlayerIds = useMemo(
-    () => new Set(assignment.values()),
-    [assignment]
-  );
-
   const setFor = (posId: number, newPlayerId: number) => {
     setAssignment((prev) => {
       const next = new Map(prev);
-      // If the new player is already elsewhere, clear that other position
+      const currentPlayer = next.get(posId) ?? null;
+      // If the new player is already on another position, swap them so the
+      // previously-assigned player doesn't disappear from the lineup.
+      let otherPos: number | null = null;
       for (const [p, pid] of next.entries()) {
-        if (pid === newPlayerId && p !== posId) next.delete(p);
+        if (pid === newPlayerId && p !== posId) {
+          otherPos = p;
+          break;
+        }
       }
       next.set(posId, newPlayerId);
+      if (otherPos !== null) {
+        if (currentPlayer !== null) next.set(otherPos, currentPlayer);
+        else next.delete(otherPos);
+      }
       return next;
     });
   };
@@ -124,15 +129,22 @@ export function EditStartLineupModal({
                 const eligible = players.filter((p) =>
                   p.playablePositionIds.includes(pos.id)
                 );
-                const notEligibleButAssigned =
-                  currentPid !== null &&
-                  !eligible.some((p) => p.id === currentPid);
-                const all = notEligibleButAssigned
-                  ? [
-                      ...eligible,
-                      players.find((p) => p.id === currentPid),
-                    ].filter((p): p is Player => !!p)
-                  : eligible;
+                // Include start-lineup players even if not eligible for this
+                // position — picking one triggers a swap with their current
+                // position.
+                const startLineupIds = new Set(assignment.values());
+                const visibleIds = new Set<number>(eligible.map((p) => p.id));
+                for (const id of startLineupIds) visibleIds.add(id);
+                const visible = players.filter((p) => visibleIds.has(p.id));
+                const posById = new Map(positions.map((p) => [p.id, p]));
+                const playerCurrentPos = (pid: number): Position | null => {
+                  for (const [posId, id] of assignment.entries()) {
+                    if (id === pid && posId !== pos.id) {
+                      return posById.get(posId) ?? null;
+                    }
+                  }
+                  return null;
+                };
 
                 return (
                   <tr key={pos.id} className="border-t border-border">
@@ -158,23 +170,23 @@ export function EditStartLineupModal({
                         className="w-full h-10 rounded-md border border-border bg-white px-2 text-sm"
                       >
                         <option value="">— välj —</option>
-                        {all.map((p) => (
-                          <option
-                            key={p.id}
-                            value={p.id}
-                            disabled={
-                              assignedPlayerIds.has(p.id) && p.id !== currentPid
-                            }
-                          >
-                            {p.name}
-                            {p.preferredPositionIds.includes(pos.id)
-                              ? " · önskar"
-                              : ""}
-                            {!p.playablePositionIds.includes(pos.id)
-                              ? " · ej spelbar"
-                              : ""}
-                          </option>
-                        ))}
+                        {visible.map((p) => {
+                          const otherPos = playerCurrentPos(p.id);
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                              {p.preferredPositionIds.includes(pos.id)
+                                ? " · önskar"
+                                : ""}
+                              {!p.playablePositionIds.includes(pos.id)
+                                ? " · ej spelbar"
+                                : ""}
+                              {otherPos
+                                ? ` · byter med ${otherPos.abbreviation}`
+                                : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     </td>
                     <td className="py-2 pl-2 text-right">
