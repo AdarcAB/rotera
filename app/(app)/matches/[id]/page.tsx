@@ -215,7 +215,7 @@ export default async function MatchPage({
         </details>
       </Card>
 
-      <Card className="mt-6">
+      <Card className="mt-6 sticky bottom-0 z-10 max-h-[calc(100vh-11rem)] overflow-y-auto shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)]">
         <div className="flex flex-wrap gap-3 items-center justify-between">
           <CardTitle>Schema</CardTitle>
           {prereqs.ok ? (
