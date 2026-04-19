@@ -159,8 +159,8 @@ export default async function MatchPage({
           ) : schedule ? (
             <form action={startLive}>
               <input type="hidden" name="matchId" value={match.id} />
-              <SubmitButton size="lg" pendingLabel="Startar…">
-                ▶ Starta live-läge
+              <SubmitButton size="lg" pendingLabel="Öppnar…">
+                Gå till live-läge
               </SubmitButton>
             </form>
           ) : null}
