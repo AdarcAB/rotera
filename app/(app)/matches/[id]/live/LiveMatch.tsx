@@ -852,11 +852,11 @@ function RunningView({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border bg-white p-4 mb-3 text-center">
-        <div className="text-6xl md:text-7xl font-mono font-bold tracking-tight">
+      <div className="sticky top-[92px] md:top-[52px] z-10 rounded-lg border border-border bg-white py-2 px-3 mb-3 text-center shadow-sm">
+        <div className="text-4xl md:text-5xl font-mono font-bold tracking-tight leading-none">
           {formatTime(remainingSec)}
         </div>
-        <div className="text-base text-neutral-800 mt-2 font-medium">
+        <div className="text-xs md:text-sm text-neutral-800 mt-1 font-medium">
           {nextSubMinute !== null && secondsUntilNextSub !== null
             ? `Nästa byte: ${nextSubMinute}′ (om ${Math.max(
                 0,
