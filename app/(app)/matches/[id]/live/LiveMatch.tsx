@@ -7,7 +7,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { formatTime } from "@/lib/utils";
 import { persistLiveState, finishMatch } from "./actions";
 import { stopLiveMatch } from "../../actions";
-import type { AdHocSub, LiveState, PlayerMeta } from "./page";
+import type { AdHocSub, CompletedSubPoint, LiveState, PlayerMeta } from "./page";
 
 const PRE_SUB_WARN_SECONDS = 10;
 
@@ -449,6 +449,30 @@ export function LiveMatch({
     }
   }, [live.status, nextSub, secondsUntilNextSub, effectiveNextChanges.length]);
 
+  const markUnfinishedSubsSkipped = (
+    current: LiveState
+  ): CompletedSubPoint[] => {
+    const period = schedule.periods[current.currentPeriodIndex];
+    if (!period) return current.completedSubPoints;
+    const alreadyHandled = new Set(
+      current.completedSubPoints
+        .filter((c) => c.periodIndex === current.currentPeriodIndex)
+        .map((c) => c.subPointIndex)
+    );
+    const additions: CompletedSubPoint[] = [];
+    for (let i = 0; i < period.subPoints.length; i++) {
+      if (alreadyHandled.has(i)) continue;
+      additions.push({
+        periodIndex: current.currentPeriodIndex,
+        subPointIndex: i,
+        // appliedPositionIds = [] means "explicitly skipped". finishMatch
+        // then reverses the schedule's assumption for this subPoint.
+        appliedPositionIds: [],
+      });
+    }
+    return [...current.completedSubPoints, ...additions];
+  };
+
   useEffect(() => {
     if (
       live.status === "running" &&
@@ -461,6 +485,7 @@ export function LiveMatch({
         resumedAt: null,
         elapsedBeforePause: 0,
         currentPeriodIndex: Math.min(numPeriods - 1, live.currentPeriodIndex + 1),
+        completedSubPoints: markUnfinishedSubsSkipped(live),
       };
       const isLast = live.currentPeriodIndex >= numPeriods - 1;
       if (isLast) next.status = "finished";
@@ -515,6 +540,7 @@ export function LiveMatch({
       currentPeriodIndex: isLast
         ? live.currentPeriodIndex
         : live.currentPeriodIndex + 1,
+      completedSubPoints: markUnfinishedSubsSkipped(live),
     };
     setLive(next);
     saveLive(next);
