@@ -867,7 +867,7 @@ function RunningView({
         </div>
       ) : null}
 
-      <div className="sticky top-[92px] md:top-[52px] z-10 rounded-lg border border-border bg-white py-2 px-3 mb-3 text-center shadow-sm relative">
+      <div className="sticky top-[136px] md:top-[96px] z-10 rounded-lg border border-border bg-white py-2 px-3 mb-3 text-center shadow-sm relative">
         <button
           type="button"
           onClick={live.status === "running" ? onPause : onResume}
