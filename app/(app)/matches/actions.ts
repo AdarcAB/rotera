@@ -652,7 +652,8 @@ export async function startLive(formData: FormData) {
       },
     })
     .where(eq(matches.id, matchId));
-  revalidatePath(`/matches/${matchId}`);
+  // Refresh (app) layout so the sticky live banner picks up the new status.
+  revalidatePath("/", "layout");
   redirect(`/matches/${matchId}/live`);
 }
 
