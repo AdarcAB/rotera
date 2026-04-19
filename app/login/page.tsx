@@ -46,35 +46,8 @@ export default async function LoginPage({
           </div>
         ) : null}
 
-        <form action={requestLoginLink}>
-          <Field>
-            <Label htmlFor="email">E-post</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              inputMode="email"
-              enterKeyHint="send"
-              placeholder="du@exempel.se"
-              defaultValue={sp.email}
-            />
-          </Field>
-          <Button type="submit" size="lg" className="w-full">
-            {sp.sent ? "Skicka ny länk och kod" : "Skicka länk + kod"}
-          </Button>
-        </form>
-
         {sp.sent && sp.email ? (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
-              Eller fyll i koden
-            </div>
-
+          <>
             {sp.otpError ? (
               <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-900 mb-3">
                 {sp.otpError}
@@ -105,8 +78,64 @@ export default async function LoginPage({
             <p className="text-xs text-neutral-500 mt-3">
               Säkrare än att klicka en länk — du ser att du är på rätt sida.
             </p>
-          </div>
-        ) : null}
+
+            <details className="mt-6 pt-6 border-t border-border">
+              <summary className="text-sm text-neutral-600 cursor-pointer hover:text-neutral-900">
+                Fick du inte mejlet? Skicka ny länk
+              </summary>
+              <form action={requestLoginLink} className="mt-3">
+                <Field>
+                  <Label htmlFor="email">E-post</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="email"
+                    enterKeyHint="send"
+                    placeholder="du@exempel.se"
+                    defaultValue={sp.email}
+                  />
+                </Field>
+                <Button
+                  type="submit"
+                  size="lg"
+                  variant="secondary"
+                  className="w-full"
+                >
+                  Skicka ny länk och kod
+                </Button>
+              </form>
+            </details>
+          </>
+        ) : (
+          <form action={requestLoginLink}>
+            <Field>
+              <Label htmlFor="email">E-post</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
+                enterKeyHint="send"
+                placeholder="du@exempel.se"
+                defaultValue={sp.email}
+              />
+            </Field>
+            <Button type="submit" size="lg" className="w-full">
+              Skicka länk + kod
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );
