@@ -157,7 +157,7 @@ export default async function MatchPage({
               Visa sammanställning
             </Link>
           ) : schedule ? (
-            <form action={startLive}>
+            <form action={startLive} className="contents">
               <input type="hidden" name="matchId" value={match.id} />
               <SubmitButton size="lg" pendingLabel="Öppnar…">
                 Gå till live-läge
@@ -270,33 +270,35 @@ export default async function MatchPage({
         </div>
       ) : null}
 
-      <Card className="mt-6 sticky bottom-0 z-10 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)]">
-        <div className="flex flex-wrap gap-3 items-center justify-between">
-          <CardTitle>
-            {schedule ? "Generera om schema" : "Generera schema"}
-          </CardTitle>
-          {prereqs.ok ? (
-            <form action={generateScheduleAction}>
-              <input type="hidden" name="matchId" value={match.id} />
-              <SubmitButton
-                variant={schedule ? "secondary" : "primary"}
-                pendingLabel="Genererar…"
-              >
-                {schedule ? "Generera om" : "Generera schema"}
-              </SubmitButton>
-            </form>
-          ) : (
-            <Button type="button" disabled variant="secondary">
-              Generera schema
-            </Button>
-          )}
-        </div>
-        {!schedule && prereqs.ok ? (
-          <p className="text-sm text-neutral-600 mt-2">
-            Välj spelare och tryck på knappen.
-          </p>
-        ) : null}
-      </Card>
+      {match.status === "draft" || match.status === "scheduled" ? (
+        <Card className="mt-6 sticky bottom-0 z-10 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)]">
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            <CardTitle>
+              {schedule ? "Generera om schema" : "Generera schema"}
+            </CardTitle>
+            {prereqs.ok ? (
+              <form action={generateScheduleAction}>
+                <input type="hidden" name="matchId" value={match.id} />
+                <SubmitButton
+                  variant={schedule ? "secondary" : "primary"}
+                  pendingLabel="Genererar…"
+                >
+                  {schedule ? "Generera om" : "Generera schema"}
+                </SubmitButton>
+              </form>
+            ) : (
+              <Button type="button" disabled variant="secondary">
+                Generera schema
+              </Button>
+            )}
+          </div>
+          {!schedule && prereqs.ok ? (
+            <p className="text-sm text-neutral-600 mt-2">
+              Välj spelare och tryck på knappen.
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card className="mt-10 border-red-100">
         <CardTitle>Radera match</CardTitle>
