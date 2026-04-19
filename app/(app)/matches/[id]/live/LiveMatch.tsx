@@ -867,17 +867,37 @@ function RunningView({
         </div>
       ) : null}
 
-      <div className="sticky top-[92px] md:top-[52px] z-10 rounded-lg border border-border bg-white py-2 px-3 mb-3 text-center shadow-sm">
+      <div className="sticky top-[92px] md:top-[52px] z-10 rounded-lg border border-border bg-white py-2 px-3 mb-3 text-center shadow-sm relative">
+        <button
+          type="button"
+          onClick={live.status === "running" ? onPause : onResume}
+          aria-label={live.status === "running" ? "Pausa" : "Återuppta"}
+          className={`absolute top-2 right-2 w-10 h-10 rounded-full flex items-center justify-center shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 ${
+            live.status === "running"
+              ? "bg-neutral-100 text-neutral-800 hover:bg-neutral-200"
+              : "bg-primary text-primary-foreground hover:opacity-90"
+          }`}
+        >
+          {live.status === "running" ? (
+            <PauseIcon className="w-5 h-5" />
+          ) : (
+            <PlayIcon className="w-5 h-5" />
+          )}
+        </button>
         <div className="text-4xl md:text-5xl font-mono font-bold tracking-tight leading-none">
           {formatTime(remainingSec)}
         </div>
         <div className="text-xs md:text-sm text-neutral-800 mt-1 font-medium">
-          {nextSubMinute !== null && secondsUntilNextSub !== null
-            ? `Nästa byte: ${nextSubMinute}′ (om ${Math.max(
-                0,
-                secondsUntilNextSub
-              )}s)`
-            : "Inga fler byten denna period"}
+          {live.status === "paused" ? (
+            <span className="text-amber-700 font-semibold">⏸ Pausad</span>
+          ) : nextSubMinute !== null && secondsUntilNextSub !== null ? (
+            `Nästa byte: ${nextSubMinute}′ (om ${Math.max(
+              0,
+              secondsUntilNextSub
+            )}s)`
+          ) : (
+            "Inga fler byten denna period"
+          )}
           {" · "}
           <span className="text-neutral-600 font-normal">
             Spelat: {formatTime(elapsedSec)}
