@@ -1,14 +1,14 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireUserId } from "@/lib/auth";
+import { assertMatchAccessible, requireUserId } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
   formations,
   matchPlayers,
-  matches,
   players,
   positions,
+  teamPlayers as teamPlayersTable,
 } from "@/lib/db/schema";
 import type { Schedule } from "@/lib/schedule/types";
 import { LiveMatch } from "./LiveMatch";
@@ -22,15 +22,9 @@ export default async function LivePage({
   const matchId = Number(id);
   const userId = await requireUserId();
 
-  const [match] = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, matchId))
-    .limit(1);
-  if (!match) notFound();
+  let match;
   try {
-    const { assertTeamAccessible } = await import("@/lib/auth");
-    await assertTeamAccessible(match.teamId, userId);
+    match = await assertMatchAccessible(matchId, userId);
   } catch {
     notFound();
   }
@@ -52,7 +46,7 @@ export default async function LivePage({
     );
   }
 
-  const [formation, posList, mps, teamPlayers] = await Promise.all([
+  const [formation, posList, mps, rosterPlayers] = await Promise.all([
     db
       .select()
       .from(formations)
@@ -65,12 +59,23 @@ export default async function LivePage({
       .where(eq(positions.formationId, match.formationId))
       .orderBy(asc(positions.sortOrder)),
     db.select().from(matchPlayers).where(eq(matchPlayers.matchId, matchId)),
-    db.select().from(players).where(eq(players.teamId, match.teamId)),
+    match.teamId
+      ? db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+          .where(eq(teamPlayersTable.teamId, match.teamId))
+      : match.orgTeamId
+      ? db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(eq(players.orgTeamId, match.orgTeamId))
+      : Promise.resolve([] as { id: number; name: string }[]),
   ]);
 
   const nameOf = (mp: (typeof mps)[number]) => {
     if (mp.isGuest) return mp.guestName ?? "Gäst";
-    const p = teamPlayers.find((p) => p.id === mp.playerId);
+    const p = rosterPlayers.find((p) => p.id === mp.playerId);
     return p?.name ?? "Okänd";
   };
 

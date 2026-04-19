@@ -1,12 +1,19 @@
 import Link from "next/link";
-import { desc, eq, inArray } from "drizzle-orm";
-import { requireUserId, userTeamIds } from "@/lib/auth";
+import { desc, eq, inArray, or } from "drizzle-orm";
+import {
+  currentOrgId,
+  requireUserId,
+  userOrgIds,
+  userTeamIds,
+} from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { formations, matches, teams } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { createMatch } from "./actions";
+import { matchTitle } from "@/lib/match-title";
+import { MatchCreateForm } from "@/components/MatchCreateForm";
 
 function todayIso(): string {
   const d = new Date();
@@ -18,24 +25,36 @@ function todayIso(): string {
 
 export default async function MatchesPage() {
   const userId = await requireUserId();
-  const teamIds = await userTeamIds(userId);
+  const [teamIds, orgIds, activeOrgId] = await Promise.all([
+    userTeamIds(userId),
+    userOrgIds(userId),
+    currentOrgId(),
+  ]);
   const [teamList, formationList, matchList] = await Promise.all([
-    teamIds.length === 0
-      ? Promise.resolve([])
-      : db.select().from(teams).where(inArray(teams.id, teamIds)),
+    activeOrgId
+      ? db.select().from(teams).where(eq(teams.orgTeamId, activeOrgId))
+      : Promise.resolve([]),
     db.select().from(formations).where(eq(formations.userId, userId)),
-    teamIds.length === 0
+    teamIds.length === 0 && orgIds.length === 0
       ? Promise.resolve([])
       : db
           .select()
           .from(matches)
-          .where(inArray(matches.teamId, teamIds))
+          .where(
+            or(
+              teamIds.length > 0
+                ? inArray(matches.teamId, teamIds)
+                : undefined,
+              orgIds.length > 0
+                ? inArray(matches.orgTeamId, orgIds)
+                : undefined
+            )
+          )
           .orderBy(desc(matches.createdAt)),
   ]);
 
-  const canCreate = teamList.length > 0 && formationList.length > 0;
+  const canCreate = formationList.length > 0;
   const teamNameById = new Map(teamList.map((t) => [t.id, t.name]));
-  const teamNameFor = (id: number) => teamNameById.get(id) ?? "Lag";
   const defaultFormationId = formationList.find((f) => f.isDefault)?.id;
 
   return (
@@ -47,76 +66,24 @@ export default async function MatchesPage() {
           <CardTitle>Nytt matchtillfälle</CardTitle>
           {!canCreate ? (
             <p className="text-sm text-neutral-600 mt-2">
-              {teamList.length === 0 ? (
-                <>
-                  Skapa ett <Link href="/teams" className="text-primary hover:underline">lag</Link> först.
-                </>
-              ) : (
-                <>
-                  Skapa en{" "}
-                  <Link href="/formations" className="text-primary hover:underline">
-                    spelform
-                  </Link>{" "}
-                  först.
-                </>
-              )}
+              Skapa en{" "}
+              <Link href="/formations" className="text-primary hover:underline">
+                spelform
+              </Link>{" "}
+              först.
             </p>
           ) : (
-            <form action={createMatch} className="mt-3">
-              <Field>
-                <Label htmlFor="opponent">Motståndare</Label>
-                <Input
-                  id="opponent"
-                  name="opponent"
-                  required
-                  placeholder="AIK P12"
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field>
-                  <Label htmlFor="teamId">Lag</Label>
-                  <select
-                    id="teamId"
-                    name="teamId"
-                    required
-                    className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
-                  >
-                    {teamList.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field>
-                  <Label htmlFor="formationId">Spelform</Label>
-                  <select
-                    id="formationId"
-                    name="formationId"
-                    required
-                    defaultValue={defaultFormationId ?? undefined}
-                    className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm"
-                  >
-                    {formationList.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                        {f.isDefault ? " (förvald)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field>
-                  <Label htmlFor="playedAt">Datum</Label>
-                  <Input
-                    id="playedAt"
-                    name="playedAt"
-                    type="date"
-                    defaultValue={todayIso()}
-                  />
-                </Field>
-              </div>
-              <Button type="submit">Skapa match</Button>
-            </form>
+            <MatchCreateForm
+              teams={teamList.map((t) => ({ id: t.id, name: t.name }))}
+              formations={formationList.map((f) => ({
+                id: f.id,
+                name: f.name,
+                isDefault: f.isDefault,
+              }))}
+              defaultFormationId={defaultFormationId ?? null}
+              defaultDate={todayIso()}
+              action={createMatch}
+            />
           )}
         </Card>
 
@@ -126,30 +93,46 @@ export default async function MatchesPage() {
             <p className="text-sm text-neutral-600 mt-2">Inga matcher ännu.</p>
           ) : (
             <ul className="mt-3 divide-y divide-border">
-              {matchList.map((m) => (
-                <li
-                  key={m.id}
-                  className="py-3 flex items-center justify-between"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {teamNameFor(m.teamId)} vs {m.opponent}
-                    </div>
-                    <div className="text-xs text-neutral-600">
-                      {m.playedAt
-                        ? new Date(m.playedAt).toLocaleDateString("sv-SE")
-                        : "Utan datum"}{" "}
-                      · {m.status}
-                    </div>
-                  </div>
-                  <Link
-                    href={`/matches/${m.id}`}
-                    className="text-sm text-primary hover:underline"
+              {matchList.map((m) => {
+                const teamName = m.teamId
+                  ? teamNameById.get(m.teamId) ?? null
+                  : null;
+                return (
+                  <li
+                    key={m.id}
+                    className="py-3 flex items-center justify-between"
                   >
-                    Öppna →
-                  </Link>
-                </li>
-              ))}
+                    <div>
+                      <div className="font-medium">
+                        {matchTitle({
+                          opponent: m.opponent,
+                          homeAway: m.homeAway,
+                          teamName,
+                          adHocName: m.adHocName,
+                        })}
+                        {m.reason ? (
+                          <span className="text-sm text-neutral-500 font-normal">
+                            {" "}
+                            ({m.reason})
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-xs text-neutral-600">
+                        {m.playedAt
+                          ? new Date(m.playedAt).toLocaleDateString("sv-SE")
+                          : "Utan datum"}{" "}
+                        · {m.status}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/matches/${m.id}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Öppna →
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

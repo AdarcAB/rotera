@@ -14,6 +14,7 @@ import {
   orgMembers,
   orgInvites,
 } from "./db/schema";
+import type { Match } from "./db/schema";
 
 const COOKIE_NAME = "rotera_session";
 const ORG_COOKIE_NAME = "rotera_org";
@@ -320,6 +321,28 @@ export async function setCurrentOrgId(orgTeamId: number): Promise<void> {
     .update(users)
     .set({ preferredOrgTeamId: orgTeamId })
     .where(eq(users.id, user.id));
+}
+
+/** A match is accessible if the user has access to its org (via team or
+ * direct org_team_id for one-time trupper). Returns the match row. */
+export async function assertMatchAccessible(
+  matchId: number,
+  userId: number
+): Promise<Match> {
+  const [row] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId))
+    .limit(1);
+  if (!row) throw new Error("Match saknas");
+  if (row.orgTeamId !== null) {
+    await assertOrgAccessible(row.orgTeamId, userId);
+  } else if (row.teamId !== null) {
+    await assertTeamAccessible(row.teamId, userId);
+  } else {
+    throw new Error("Match saknar organisation");
+  }
+  return row;
 }
 
 /** A team is accessible if the user is a member of its org. */

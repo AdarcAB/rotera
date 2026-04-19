@@ -12,12 +12,18 @@ import {
   matches,
   players,
   positions,
+  teamPlayers as teamPlayersTable,
   teams,
 } from "@/lib/db/schema";
 import { generateSchedule } from "@/lib/schedule/generate";
 import type { ScheduleInput } from "@/lib/schedule/types";
 import { capitalizeName } from "@/lib/utils";
-import { assertTeamAccessible } from "@/lib/auth";
+import {
+  assertMatchAccessible,
+  assertOrgAccessible,
+  assertTeamAccessible,
+  currentOrgId,
+} from "@/lib/auth";
 import { fairScore, optimalMinutes } from "@/lib/stats";
 
 /**
@@ -26,9 +32,10 @@ import { fairScore, optimalMinutes } from "@/lib/stats";
  * generator to nudge underplayed kids to more time.
  */
 async function computeSeasonFairScoresForTeam(
-  teamId: number,
+  teamId: number | null,
   excludeMatchId: number
 ): Promise<Map<number, number>> {
+  if (teamId === null) return new Map();
   const finished = await db
     .select()
     .from(matches)
@@ -88,44 +95,71 @@ async function computeSeasonFairScoresForTeam(
   return avg;
 }
 
-const MatchInput = z.object({
-  opponent: z.string().trim().min(1).max(80),
-  teamId: z.coerce.number().int().positive(),
-  formationId: z.coerce.number().int().positive(),
-  playedAt: z
-    .string()
-    .optional()
-    .transform((v) => (v && v.length > 0 ? new Date(v) : null)),
-  location: z
-    .string()
-    .trim()
-    .max(120)
-    .optional()
-    .transform((v) => (v && v.length > 0 ? v : null)),
-});
-
-async function assertOwned(matchId: number, userId: number) {
-  const rows = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, matchId))
-    .limit(1);
-  if (rows.length === 0) throw new Error("Match saknas");
-  await assertTeamAccessible(rows[0].teamId, userId);
-  return rows[0];
-}
+const MatchInput = z
+  .object({
+    mode: z.enum(["team", "adhoc"]).default("team"),
+    opponent: z.string().trim().min(1).max(80),
+    teamId: z
+      .string()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? Number(v) : null))
+      .pipe(
+        z.number().int().positive().nullable()
+      ),
+    adHocName: z
+      .string()
+      .trim()
+      .max(80)
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+    formationId: z.coerce.number().int().positive(),
+    homeAway: z.enum(["home", "away"]).default("home"),
+    reason: z
+      .string()
+      .trim()
+      .max(80)
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+    playedAt: z
+      .string()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? new Date(v) : null)),
+    location: z
+      .string()
+      .trim()
+      .max(120)
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+  })
+  .refine(
+    (v) => (v.mode === "team" ? v.teamId !== null : v.adHocName !== null),
+    { message: "Välj ett lag eller namnge en tillfällig trupp" }
+  );
 
 export async function createMatch(formData: FormData) {
   const userId = await requireUserId();
   const parsed = MatchInput.parse(Object.fromEntries(formData.entries()));
 
-  await assertTeamAccessible(parsed.teamId, userId);
-  const [team] = await db
-    .select()
-    .from(teams)
-    .where(eq(teams.id, parsed.teamId))
-    .limit(1);
-  if (!team) throw new Error("Lag saknas");
+  let teamId: number | null = null;
+  let orgTeamId: number;
+  let adHocName: string | null = null;
+
+  if (parsed.mode === "team") {
+    if (!parsed.teamId) throw new Error("Lag saknas");
+    await assertTeamAccessible(parsed.teamId, userId);
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, parsed.teamId))
+      .limit(1);
+    if (!team || team.orgTeamId === null) throw new Error("Lag saknas");
+    teamId = team.id;
+    orgTeamId = team.orgTeamId;
+  } else {
+    orgTeamId = await currentOrgId();
+    await assertOrgAccessible(orgTeamId, userId);
+    adHocName = parsed.adHocName;
+  }
 
   const [formation] = await db
     .select()
@@ -140,9 +174,13 @@ export async function createMatch(formData: FormData) {
     .insert(matches)
     .values({
       userId,
-      teamId: parsed.teamId,
+      orgTeamId,
+      teamId,
+      adHocName,
       formationId: parsed.formationId,
       opponent: parsed.opponent,
+      homeAway: parsed.homeAway,
+      reason: parsed.reason,
       playedAt: parsed.playedAt,
       location: parsed.location,
       status: "draft",
@@ -156,7 +194,7 @@ export async function createMatch(formData: FormData) {
 export async function deleteMatch(formData: FormData) {
   const userId = await requireUserId();
   const id = Number(formData.get("id"));
-  await assertOwned(id, userId);
+  await assertMatchAccessible(id, userId);
   await db.delete(matches).where(eq(matches.id, id));
   revalidatePath("/matches");
   redirect("/matches");
@@ -185,13 +223,31 @@ export async function togglePlayerCalledAction(
   called: boolean
 ): Promise<MatchPlayerDTO | null> {
   const userId = await requireUserId();
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
 
-  const [teamPlayer] = await db
-    .select()
-    .from(players)
-    .where(and(eq(players.id, playerId), eq(players.teamId, match.teamId)))
-    .limit(1);
+  let teamPlayer;
+  if (match.teamId !== null) {
+    // Team match: player must be on this team's roster.
+    const rows = await db
+      .select({ id: players.id })
+      .from(players)
+      .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+      .where(
+        and(eq(players.id, playerId), eq(teamPlayersTable.teamId, match.teamId))
+      )
+      .limit(1);
+    teamPlayer = rows[0];
+  } else if (match.orgTeamId !== null) {
+    // Ad-hoc trupp: player must belong to the match's org.
+    const rows = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(
+        and(eq(players.id, playerId), eq(players.orgTeamId, match.orgTeamId))
+      )
+      .limit(1);
+    teamPlayer = rows[0];
+  }
   if (!teamPlayer) throw new Error("Spelare saknas i laget");
 
   const existing = await db
@@ -249,7 +305,7 @@ export async function addGuestAction(
   name: string
 ): Promise<MatchPlayerDTO | null> {
   const userId = await requireUserId();
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
   const cleaned = capitalizeName(name.trim().slice(0, 60));
   if (!cleaned) return null;
   const posIds = await allPositionIds(match.formationId);
@@ -279,7 +335,7 @@ export async function removeMatchPlayerAction(
   mpId: number
 ): Promise<void> {
   const userId = await requireUserId();
-  await assertOwned(matchId, userId);
+  await assertMatchAccessible(matchId, userId);
   await db
     .delete(matchPlayers)
     .where(and(eq(matchPlayers.id, mpId), eq(matchPlayers.matchId, matchId)));
@@ -293,7 +349,7 @@ export async function updateMatchPlayerPositionsAction(
   preferred: number[]
 ): Promise<void> {
   const userId = await requireUserId();
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
   const validIds = new Set(await allPositionIds(match.formationId));
   const cleanPlayable = Array.from(new Set(playable.filter((id) => validIds.has(id)))).sort(
     (a, b) => a - b
@@ -320,7 +376,7 @@ export async function computeSchedulePrereqs(
   matchId: number
 ): Promise<SchedulePrereqs> {
   const userId = await requireUserId();
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
   const formation = await db
     .select()
     .from(formations)
@@ -371,7 +427,7 @@ export async function computeSchedulePrereqs(
 export async function generateScheduleAction(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
 
   const pre = await computeSchedulePrereqs(matchId);
   if (!pre.ok) {
@@ -397,10 +453,18 @@ export async function generateScheduleAction(formData: FormData) {
     .from(matchPlayers)
     .where(eq(matchPlayers.matchId, matchId));
 
-  const plist = await db
-    .select()
-    .from(players)
-    .where(eq(players.teamId, match.teamId));
+  const plist = match.teamId
+    ? await db
+        .select({ id: players.id, name: players.name })
+        .from(players)
+        .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+        .where(eq(teamPlayersTable.teamId, match.teamId))
+    : match.orgTeamId
+      ? await db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(eq(players.orgTeamId, match.orgTeamId))
+      : [];
   const nameOf = (mp: (typeof mps)[number]) => {
     if (mp.isGuest) return mp.guestName ?? "Gäst";
     const p = plist.find((p) => p.id === mp.playerId);
@@ -461,7 +525,7 @@ export async function regenerateScheduleWithStart(
   fixedStartLineup: { positionId: number; playerId: number }[]
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
 
   const pre = await computeSchedulePrereqs(matchId);
   if (!pre.ok) {
@@ -504,10 +568,18 @@ export async function regenerateScheduleWithStart(
     seenPlayers.add(slot.playerId);
   }
 
-  const plist = await db
-    .select()
-    .from(players)
-    .where(eq(players.teamId, match.teamId));
+  const plist = match.teamId
+    ? await db
+        .select({ id: players.id, name: players.name })
+        .from(players)
+        .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+        .where(eq(teamPlayersTable.teamId, match.teamId))
+    : match.orgTeamId
+      ? await db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(eq(players.orgTeamId, match.orgTeamId))
+      : [];
   const nameOf = (mp: (typeof mps)[number]) => {
     if (mp.isGuest) return mp.guestName ?? "Gäst";
     const p = plist.find((p) => p.id === mp.playerId);
@@ -564,7 +636,7 @@ export async function regenerateScheduleWithStart(
 export async function startLive(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
-  await assertOwned(matchId, userId);
+  await assertMatchAccessible(matchId, userId);
   await db
     .update(matches)
     .set({
@@ -586,7 +658,7 @@ export async function startLive(formData: FormData) {
 
 export async function saveLiveState(matchId: number, state: unknown) {
   const userId = await requireUserId();
-  await assertOwned(matchId, userId);
+  await assertMatchAccessible(matchId, userId);
   await db
     .update(matches)
     .set({ liveStateJson: state as object })
@@ -596,7 +668,7 @@ export async function saveLiveState(matchId: number, state: unknown) {
 export async function stopLiveMatch(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
-  await assertOwned(matchId, userId);
+  await assertMatchAccessible(matchId, userId);
   await db
     .update(matches)
     .set({ status: "scheduled", liveStateJson: null })
@@ -608,7 +680,7 @@ export async function stopLiveMatch(formData: FormData) {
 export async function finishMatch(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
-  const match = await assertOwned(matchId, userId);
+  const match = await assertMatchAccessible(matchId, userId);
 
   const schedule = match.generatedScheduleJson as
     | {

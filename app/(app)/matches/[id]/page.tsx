@@ -1,7 +1,7 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireUserId } from "@/lib/auth";
+import { assertMatchAccessible, requireUserId } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
   formations,
@@ -9,6 +9,7 @@ import {
   matches,
   players,
   positions,
+  teamPlayers as teamPlayersTable,
   teams,
 } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -21,7 +22,9 @@ import {
 } from "../actions";
 import type { Schedule } from "@/lib/schedule/types";
 import { PlayersSection } from "@/components/PlayersSection";
+import { AdHocPlayersSection } from "@/components/AdHocPlayersSection";
 import { EditStartLineupButton } from "@/components/EditStartLineupButton";
+import { matchTitle } from "@/lib/match-title";
 
 export default async function MatchPage({
   params,
@@ -35,32 +38,44 @@ export default async function MatchPage({
   const matchId = Number(id);
   const userId = await requireUserId();
 
-  const [match] = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, matchId))
-    .limit(1);
-  if (!match) notFound();
+  let match;
   try {
-    const { assertTeamAccessible } = await import("@/lib/auth");
-    await assertTeamAccessible(match.teamId, userId);
+    match = await assertMatchAccessible(matchId, userId);
   } catch {
     notFound();
   }
 
-  const [team, formation, teamPlayers, posList, mps] = await Promise.all([
-    db.select().from(teams).where(eq(teams.id, match.teamId)).limit(1).then((r) => r[0]),
+  const [team, formation, rosterPlayers, posList, mps] = await Promise.all([
+    match.teamId
+      ? db
+          .select()
+          .from(teams)
+          .where(eq(teams.id, match.teamId))
+          .limit(1)
+          .then((r) => r[0] ?? null)
+      : Promise.resolve(null),
     db
       .select()
       .from(formations)
       .where(eq(formations.id, match.formationId))
       .limit(1)
       .then((r) => r[0]),
-    db
-      .select({ id: players.id, name: players.name })
-      .from(players)
-      .where(eq(players.teamId, match.teamId))
-      .orderBy(players.name),
+    match.teamId
+      ? db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+          .where(eq(teamPlayersTable.teamId, match.teamId))
+          .orderBy(players.name)
+      : match.orgTeamId
+      ? db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(eq(players.orgTeamId, match.orgTeamId))
+          .orderBy(players.name)
+      : Promise.resolve(
+          [] as { id: number; name: string }[]
+        ),
     db
       .select()
       .from(positions)
@@ -82,7 +97,7 @@ export default async function MatchPage({
     playerId: number | null;
   }) => {
     if (mp.isGuest) return mp.guestName ?? "Gäst";
-    const p = teamPlayers.find((p) => p.id === mp.playerId);
+    const p = rosterPlayers.find((p) => p.id === mp.playerId);
     return p?.name ?? "Okänd";
   };
 
@@ -104,7 +119,18 @@ export default async function MatchPage({
       <div className="flex flex-wrap gap-3 items-start justify-between mt-2 mb-6">
         <div>
           <h1 className="text-2xl font-bold">
-            {team.name} vs {match.opponent}
+            {matchTitle({
+              opponent: match.opponent,
+              homeAway: match.homeAway,
+              teamName: team?.name ?? null,
+              adHocName: match.adHocName,
+            })}
+            {match.reason ? (
+              <span className="text-base text-neutral-500 font-normal">
+                {" "}
+                ({match.reason})
+              </span>
+            ) : null}
           </h1>
           <div className="text-sm text-neutral-600 mt-1">
             {formation.name} ·{" "}
@@ -161,16 +187,29 @@ export default async function MatchPage({
             ) : null}
           </summary>
           <div className="mt-3">
-            <PlayersSection
-              matchId={match.id}
-              teamPlayers={teamPlayers}
-              positions={posList.map((p) => ({
-                id: p.id,
-                name: p.name,
-                abbreviation: p.abbreviation,
-              }))}
-              initialMatchPlayers={initialMatchPlayers}
-            />
+            {match.teamId !== null ? (
+              <PlayersSection
+                matchId={match.id}
+                teamPlayers={rosterPlayers}
+                positions={posList.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  abbreviation: p.abbreviation,
+                }))}
+                initialMatchPlayers={initialMatchPlayers}
+              />
+            ) : (
+              <AdHocPlayersSection
+                matchId={match.id}
+                orgPlayers={rosterPlayers}
+                positions={posList.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  abbreviation: p.abbreviation,
+                }))}
+                initialMatchPlayers={initialMatchPlayers}
+              />
+            )}
           </div>
         </details>
       </Card>

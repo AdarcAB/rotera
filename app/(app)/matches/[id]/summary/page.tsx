@@ -1,14 +1,15 @@
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireUserId } from "@/lib/auth";
+import { assertMatchAccessible, requireUserId } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
   formations,
   matchPlayers,
-  matches,
   players,
   positions,
+  teamPlayers as teamPlayersTable,
+  teams,
 } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import type { Schedule } from "@/lib/schedule/types";
@@ -19,6 +20,7 @@ import {
   verdictFor,
   deltaMinutes,
 } from "@/lib/stats";
+import { matchTitle } from "@/lib/match-title";
 
 export default async function SummaryPage({
   params,
@@ -29,22 +31,27 @@ export default async function SummaryPage({
   const matchId = Number(id);
   const userId = await requireUserId();
 
-  const [match] = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, matchId))
-    .limit(1);
-  if (!match) notFound();
+  let match;
   try {
-    const { assertTeamAccessible } = await import("@/lib/auth");
-    await assertTeamAccessible(match.teamId, userId);
+    match = await assertMatchAccessible(matchId, userId);
   } catch {
     notFound();
   }
 
-  const [mps, teamPlayers, posList, formation] = await Promise.all([
+  const [mps, rosterPlayers, posList, formation, team] = await Promise.all([
     db.select().from(matchPlayers).where(eq(matchPlayers.matchId, matchId)),
-    db.select().from(players).where(eq(players.teamId, match.teamId)),
+    match.teamId
+      ? db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+          .where(eq(teamPlayersTable.teamId, match.teamId))
+      : match.orgTeamId
+      ? db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(eq(players.orgTeamId, match.orgTeamId))
+      : Promise.resolve([] as { id: number; name: string }[]),
     db
       .select()
       .from(positions)
@@ -56,11 +63,19 @@ export default async function SummaryPage({
       .where(eq(formations.id, match.formationId))
       .limit(1)
       .then((r) => r[0]),
+    match.teamId
+      ? db
+          .select()
+          .from(teams)
+          .where(eq(teams.id, match.teamId))
+          .limit(1)
+          .then((r) => r[0] ?? null)
+      : Promise.resolve(null),
   ]);
 
   const nameOf = (mp: (typeof mps)[number]) => {
     if (mp.isGuest) return mp.guestName ?? "Gäst";
-    const p = teamPlayers.find((p) => p.id === mp.playerId);
+    const p = rosterPlayers.find((p) => p.id === mp.playerId);
     return p?.name ?? "Okänd";
   };
   const posAbbr = new Map(posList.map((p) => [p.id, p.abbreviation]));
@@ -105,7 +120,19 @@ export default async function SummaryPage({
       </Link>
 
       <h1 className="text-2xl font-bold mt-2 mb-1">
-        Summering — vs {match.opponent}
+        Summering —{" "}
+        {matchTitle({
+          opponent: match.opponent,
+          homeAway: match.homeAway,
+          teamName: team?.name ?? null,
+          adHocName: match.adHocName,
+        })}
+        {match.reason ? (
+          <span className="text-base text-neutral-500 font-normal">
+            {" "}
+            ({match.reason})
+          </span>
+        ) : null}
       </h1>
       <p className="text-neutral-600 mb-6">
         Status: <strong>{match.status}</strong> · optimal speltid:{" "}

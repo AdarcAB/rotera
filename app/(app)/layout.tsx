@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { and, eq, desc, inArray } from "drizzle-orm";
+import { and, eq, desc, inArray, or } from "drizzle-orm";
 import { currentOrgId, requireUser, userOrgIds, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, orgTeams, teams } from "@/lib/db/schema";
 import { Logo } from "@/components/Logo";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { matchTitle } from "@/lib/match-title";
 
 export default async function AppLayout({
   children,
@@ -22,19 +23,28 @@ export default async function AppLayout({
   const teamIds = await userTeamIds(user.id);
 
   const liveMatch =
-    teamIds.length === 0
+    teamIds.length === 0 && orgIds.length === 0
       ? null
       : await db
           .select({
             id: matches.id,
             opponent: matches.opponent,
             teamName: teams.name,
+            adHocName: matches.adHocName,
+            homeAway: matches.homeAway,
           })
           .from(matches)
           .leftJoin(teams, eq(teams.id, matches.teamId))
           .where(
             and(
-              inArray(matches.teamId, teamIds),
+              or(
+                teamIds.length > 0
+                  ? inArray(matches.teamId, teamIds)
+                  : undefined,
+                orgIds.length > 0
+                  ? inArray(matches.orgTeamId, orgIds)
+                  : undefined
+              ),
               eq(matches.status, "live")
             )
           )
@@ -57,7 +67,7 @@ export default async function AppLayout({
             href={`/matches/${liveMatch.id}/live`}
             className="block bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-sm font-medium text-center"
           >
-            🔴 Live-match pågår — {liveMatch.teamName ?? "Lag"} vs {liveMatch.opponent}
+            🔴 Live-match pågår — {matchTitle(liveMatch)}
             <span className="ml-2 underline">Gå till live →</span>
           </Link>
         ) : null}

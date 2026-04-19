@@ -1,25 +1,34 @@
 import Link from "next/link";
-import { desc, eq, inArray } from "drizzle-orm";
-import { requireUserId, userTeamIds } from "@/lib/auth";
+import { desc, eq, inArray, or } from "drizzle-orm";
+import { requireUserId, userOrgIds, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { matches, teams, players } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { InstallAppHint } from "@/components/InstallAppHint";
 import { unvotedFeatureCount } from "../forslag/actions";
+import { matchTitle } from "@/lib/match-title";
 
 export default async function Dashboard() {
   const userId = await requireUserId();
-  const teamIds = await userTeamIds(userId);
+  const [teamIds, orgIds] = await Promise.all([
+    userTeamIds(userId),
+    userOrgIds(userId),
+  ]);
   const [teamRows, matchRows] = await Promise.all([
     teamIds.length === 0
       ? Promise.resolve([])
       : db.select().from(teams).where(inArray(teams.id, teamIds)),
-    teamIds.length === 0
+    teamIds.length === 0 && orgIds.length === 0
       ? Promise.resolve([])
       : db
           .select()
           .from(matches)
-          .where(inArray(matches.teamId, teamIds))
+          .where(
+            or(
+              teamIds.length > 0 ? inArray(matches.teamId, teamIds) : undefined,
+              orgIds.length > 0 ? inArray(matches.orgTeamId, orgIds) : undefined
+            )
+          )
           .orderBy(desc(matches.createdAt))
           .limit(5),
   ]);
@@ -100,12 +109,25 @@ export default async function Dashboard() {
         ) : (
           <ul className="mt-3 divide-y divide-border">
             {matchRows.map((m) => {
-              const teamName = teamRows.find((t) => t.id === m.teamId)?.name;
+              const teamName = m.teamId
+                ? teamRows.find((t) => t.id === m.teamId)?.name ?? null
+                : null;
               return (
               <li key={m.id} className="py-3 flex items-center justify-between">
                 <div>
                   <div className="font-medium">
-                    {teamName ? `${teamName} vs ${m.opponent}` : `vs ${m.opponent}`}
+                    {matchTitle({
+                      opponent: m.opponent,
+                      homeAway: m.homeAway,
+                      teamName,
+                      adHocName: m.adHocName,
+                    })}
+                    {m.reason ? (
+                      <span className="text-sm text-neutral-500 font-normal">
+                        {" "}
+                        ({m.reason})
+                      </span>
+                    ) : null}
                   </div>
                   <div className="text-sm text-neutral-600">
                     {m.playedAt

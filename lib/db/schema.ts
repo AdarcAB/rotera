@@ -17,6 +17,8 @@ export const matchStatus = pgEnum("match_status", [
   "finished",
 ]);
 
+export const matchHomeAway = pgEnum("match_home_away", ["home", "away"]);
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
@@ -186,11 +188,20 @@ export const positions = pgTable("positions", {
 
 export const matches = pgTable("matches", {
   id: serial("id").primaryKey(),
-  // "Created by" marker. Access is via team membership, not this column.
+  // "Created by" marker. Access is via team/org membership, not this column.
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
-  teamId: integer("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  // Access scope. Always set (even when teamId is null for a one-time trupp).
+  orgTeamId: integer("org_team_id").references(() => orgTeams.id, {
+    onDelete: "cascade",
+  }),
+  // Team is optional — a match can belong to a one-time trupp instead.
+  teamId: integer("team_id").references(() => teams.id, { onDelete: "cascade" }),
+  // Display name when teamId is null (e.g. "Lag 1 19/4").
+  adHocName: text("ad_hoc_name"),
   formationId: integer("formation_id").notNull().references(() => formations.id, { onDelete: "restrict" }),
   opponent: text("opponent").notNull(),
+  homeAway: matchHomeAway("home_away").notNull().default("home"),
+  reason: text("reason"),
   playedAt: timestamp("played_at"),
   location: text("location"),
   status: matchStatus("status").notNull().default("draft"),
