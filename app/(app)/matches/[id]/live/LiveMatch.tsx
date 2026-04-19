@@ -619,6 +619,8 @@ export function LiveMatch({
           playerMap={playerMap}
           schedule={schedule}
           minutesByPlayer={minutesByPlayer}
+          minutesPerPeriod={minutesPerPeriod}
+          numPeriods={numPeriods}
           canForceNextSub={effectiveNextChanges.length > 0 && !forceOpenSub}
           onPause={handlePause}
           onResume={handleResume}
@@ -818,6 +820,8 @@ function RunningView({
   playerMap,
   schedule,
   minutesByPlayer,
+  minutesPerPeriod,
+  numPeriods,
   canForceNextSub,
   onPause,
   onResume,
@@ -837,6 +841,8 @@ function RunningView({
   playerMap: Record<number, string>;
   schedule: Schedule;
   minutesByPlayer: Record<number, number>;
+  minutesPerPeriod: number;
+  numPeriods: number;
   canForceNextSub: boolean;
   onPause: () => void;
   onResume: () => void;
@@ -844,6 +850,15 @@ function RunningView({
   onTapFieldPlayer: (positionId: number) => void;
   onDoSubNow: () => void;
 }) {
+  const totalMatchSec = numPeriods * minutesPerPeriod * 60;
+  const totalElapsedSec = Math.min(
+    totalMatchSec,
+    live.currentPeriodIndex * minutesPerPeriod * 60 + elapsedSec
+  );
+  const matchProgressPct = totalMatchSec
+    ? Math.min(100, (totalElapsedSec / totalMatchSec) * 100)
+    : 0;
+
   return (
     <div>
       {showPreSubWarning ? (
@@ -867,6 +882,19 @@ function RunningView({
           <span className="text-neutral-600 font-normal">
             Spelat: {formatTime(elapsedSec)}
           </span>
+        </div>
+        <div
+          className="mt-2 h-1.5 w-full rounded-full bg-neutral-100 overflow-hidden"
+          role="progressbar"
+          aria-valuenow={Math.round(matchProgressPct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Matchens totala progress"
+        >
+          <div
+            className="h-full bg-primary transition-[width] duration-500"
+            style={{ width: `${matchProgressPct}%` }}
+          />
         </div>
       </div>
 
