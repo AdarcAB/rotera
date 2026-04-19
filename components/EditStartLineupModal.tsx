@@ -119,7 +119,7 @@ export function EditStartLineupModal({
         <div className="p-4">
           <p className="text-sm text-neutral-700 mb-4">
             Välj vem som startar på varje position. Resten av matchen
-            regenereras utifrån ditt val.
+            genereras om utifrån ditt val.
           </p>
 
           <table className="w-full text-sm">
@@ -227,7 +227,7 @@ export function EditStartLineupModal({
             className="h-10 px-5 rounded-md bg-primary text-white text-sm font-semibold disabled:opacity-60"
             disabled={isPending}
           >
-            {isPending ? "Regenererar..." : "Spara & regenerera"}
+            {isPending ? "Genererar om..." : "Spara & generera om"}
           </button>
         </div>
       </div>

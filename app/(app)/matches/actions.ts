@@ -643,7 +643,7 @@ export async function regenerateScheduleWithStart(
     return {
       ok: false,
       error:
-        "Optimeraren hittade inget giltigt schema med den uppsättningen. Prova en annan eller klicka Regenerera utan fixering.",
+        "Optimeraren hittade inget giltigt schema med den uppsättningen. Prova en annan eller klicka Generera om utan fixering.",
     };
   }
 

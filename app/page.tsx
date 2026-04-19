@@ -132,7 +132,7 @@ export default async function LandingPage({
                 <Step
                   n={4}
                   title="Generera schema"
-                  body="Vår algoritm provar många varianter och plockar den som bäst uppfyller speltidsgaranti + önskemål. Gillar du inte — klicka regenerera."
+                  body="Vår algoritm provar många varianter och plockar den som bäst uppfyller speltidsgaranti + önskemål. Gillar du inte — klicka generera om."
                 />
                 <Step
                   n={5}

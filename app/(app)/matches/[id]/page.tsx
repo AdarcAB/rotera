@@ -273,7 +273,7 @@ export default async function MatchPage({
       <Card className="mt-6 sticky bottom-0 z-10 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)]">
         <div className="flex flex-wrap gap-3 items-center justify-between">
           <CardTitle>
-            {schedule ? "Regenerera schema" : "Generera schema"}
+            {schedule ? "Generera om schema" : "Generera schema"}
           </CardTitle>
           {prereqs.ok ? (
             <form action={generateScheduleAction}>
@@ -282,7 +282,7 @@ export default async function MatchPage({
                 variant={schedule ? "secondary" : "primary"}
                 pendingLabel="Genererar…"
               >
-                {schedule ? "Regenerera" : "Generera schema"}
+                {schedule ? "Generera om" : "Generera schema"}
               </SubmitButton>
             </form>
           ) : (
