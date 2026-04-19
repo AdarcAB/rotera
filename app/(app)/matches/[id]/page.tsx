@@ -224,22 +224,24 @@ export default async function MatchPage({
             mps={mps}
             nameOf={nameOf}
             editStartButton={
-              <EditStartLineupButton
-                matchId={match.id}
-                positions={posList.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  abbreviation: p.abbreviation,
-                  isGoalkeeper: p.isGoalkeeper,
-                }))}
-                players={mps.map((mp) => ({
-                  id: mp.id,
-                  name: nameOf(mp),
-                  playablePositionIds: mp.playablePositionIds ?? [],
-                  preferredPositionIds: mp.preferredPositionIds ?? [],
-                }))}
-                initialLineup={schedule.periods[0]?.startLineup ?? []}
-              />
+              match.status === "draft" || match.status === "scheduled" ? (
+                <EditStartLineupButton
+                  matchId={match.id}
+                  positions={posList.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    abbreviation: p.abbreviation,
+                    isGoalkeeper: p.isGoalkeeper,
+                  }))}
+                  players={mps.map((mp) => ({
+                    id: mp.id,
+                    name: nameOf(mp),
+                    playablePositionIds: mp.playablePositionIds ?? [],
+                    preferredPositionIds: mp.preferredPositionIds ?? [],
+                  }))}
+                  initialLineup={schedule.periods[0]?.startLineup ?? []}
+                />
+              ) : undefined
             }
           />
         </Card>
