@@ -1445,10 +1445,12 @@ function Pitch({
             <div className="w-12 h-12 rounded-full bg-white text-emerald-900 font-bold text-sm flex items-center justify-center shadow">
               {positionMap[slot.positionId]?.abbreviation ?? "?"}
             </div>
-            <div className="text-sm text-white font-semibold mt-1 max-w-[112px] truncate px-1.5 py-0.5 bg-black/50 rounded">
-              {playerMap[slot.playerId] ?? "?"}
+            <div className="text-sm text-white font-semibold mt-1 max-w-[112px] px-1.5 py-0.5 bg-black/50 rounded flex items-center gap-1 min-w-0">
+              <span className="truncate">
+                {shortPlayerName(playerMap[slot.playerId] ?? "?")}
+              </span>
               {mins !== null ? (
-                <span className="ml-1 text-xs font-mono text-white/80">
+                <span className="shrink-0 text-xs font-mono text-white/80">
                   {mins}′
                 </span>
               ) : null}
@@ -1478,6 +1480,14 @@ function Pitch({
       })}
     </div>
   );
+}
+
+function shortPlayerName(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  // Keep first name + first letter of surname; preserves already-compact
+  // names like "Finn W" untouched.
+  return `${parts[0]} ${parts[1][0]}`;
 }
 
 function splitIntoRows(count: number): number[] {
