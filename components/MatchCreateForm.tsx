@@ -24,6 +24,7 @@ export function MatchCreateForm({
   const [mode, setMode] = useState<"team" | "adhoc">(
     hasTeams ? "team" : "adhoc"
   );
+  const [adHocName, setAdHocName] = useState("");
 
   return (
     <form action={action} className="mt-3 space-y-3">
@@ -81,6 +82,8 @@ export function MatchCreateForm({
             required
             placeholder="t.ex. Lag 1 19/4"
             maxLength={80}
+            value={adHocName}
+            onChange={(e) => setAdHocName(e.target.value)}
           />
           <p className="text-xs text-neutral-500 mt-1">
             Välj spelare från organisationen på matchsidan.
