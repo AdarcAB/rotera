@@ -126,16 +126,15 @@ export function EditStartLineupModal({
             <tbody>
               {sorted.map((pos) => {
                 const currentPid = assignment.get(pos.id) ?? null;
-                const eligible = players.filter((p) =>
-                  p.playablePositionIds.includes(pos.id)
-                );
-                // Include start-lineup players even if not eligible for this
-                // position — picking one triggers a swap with their current
-                // position.
-                const startLineupIds = new Set(assignment.values());
-                const visibleIds = new Set<number>(eligible.map((p) => p.id));
-                for (const id of startLineupIds) visibleIds.add(id);
-                const visible = players.filter((p) => visibleIds.has(p.id));
+                // Show every called player. Non-eligible ones are still
+                // selectable — coach is allowed to override. Bench players
+                // appear too so they can be swapped into the start lineup.
+                const visible = [...players].sort((a, b) => {
+                  const aEl = a.playablePositionIds.includes(pos.id) ? 0 : 1;
+                  const bEl = b.playablePositionIds.includes(pos.id) ? 0 : 1;
+                  if (aEl !== bEl) return aEl - bEl;
+                  return a.name.localeCompare(b.name, "sv");
+                });
                 const posById = new Map(positions.map((p) => [p.id, p]));
                 const playerCurrentPos = (pid: number): Position | null => {
                   for (const [posId, id] of assignment.entries()) {
@@ -172,17 +171,21 @@ export function EditStartLineupModal({
                         <option value="">— välj —</option>
                         {visible.map((p) => {
                           const otherPos = playerCurrentPos(p.id);
+                          const isCurrent = p.id === currentPid;
+                          const tag = isCurrent
+                            ? null
+                            : otherPos
+                              ? otherPos.abbreviation
+                              : "bänk";
                           return (
                             <option key={p.id} value={p.id}>
                               {p.name}
+                              {tag ? ` (${tag})` : ""}
                               {p.preferredPositionIds.includes(pos.id)
                                 ? " · önskar"
                                 : ""}
                               {!p.playablePositionIds.includes(pos.id)
                                 ? " · ej spelbar"
-                                : ""}
-                              {otherPos
-                                ? ` · byter med ${otherPos.abbreviation}`
                                 : ""}
                             </option>
                           );
