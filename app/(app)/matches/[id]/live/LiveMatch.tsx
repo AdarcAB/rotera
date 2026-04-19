@@ -620,7 +620,6 @@ export function LiveMatch({
           schedule={schedule}
           minutesByPlayer={minutesByPlayer}
           minutesPerPeriod={minutesPerPeriod}
-          numPeriods={numPeriods}
           canForceNextSub={effectiveNextChanges.length > 0 && !forceOpenSub}
           onPause={handlePause}
           onResume={handleResume}
@@ -821,7 +820,6 @@ function RunningView({
   schedule,
   minutesByPlayer,
   minutesPerPeriod,
-  numPeriods,
   canForceNextSub,
   onPause,
   onResume,
@@ -842,7 +840,6 @@ function RunningView({
   schedule: Schedule;
   minutesByPlayer: Record<number, number>;
   minutesPerPeriod: number;
-  numPeriods: number;
   canForceNextSub: boolean;
   onPause: () => void;
   onResume: () => void;
@@ -850,13 +847,9 @@ function RunningView({
   onTapFieldPlayer: (positionId: number) => void;
   onDoSubNow: () => void;
 }) {
-  const totalMatchSec = numPeriods * minutesPerPeriod * 60;
-  const totalElapsedSec = Math.min(
-    totalMatchSec,
-    live.currentPeriodIndex * minutesPerPeriod * 60 + elapsedSec
-  );
-  const matchProgressPct = totalMatchSec
-    ? Math.min(100, (totalElapsedSec / totalMatchSec) * 100)
+  const periodTotalSec = minutesPerPeriod * 60;
+  const periodProgressPct = periodTotalSec
+    ? Math.min(100, (elapsedSec / periodTotalSec) * 100)
     : 0;
 
   return (
@@ -906,14 +899,14 @@ function RunningView({
         <div
           className="mt-2 h-1.5 w-full rounded-full bg-neutral-100 overflow-hidden"
           role="progressbar"
-          aria-valuenow={Math.round(matchProgressPct)}
+          aria-valuenow={Math.round(periodProgressPct)}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label="Matchens totala progress"
+          aria-label="Periodens progress"
         >
           <div
             className="h-full bg-primary transition-[width] duration-500"
-            style={{ width: `${matchProgressPct}%` }}
+            style={{ width: `${periodProgressPct}%` }}
           />
         </div>
       </div>
