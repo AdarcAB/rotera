@@ -87,7 +87,11 @@ export function OrgPlayersSection({
                   {r.teams.length === 0 ? (
                     <span className="text-neutral-400">—</span>
                   ) : (
-                    r.teams.map((t) => t.name).join(" · ")
+                    <span
+                      title={r.teams.map((t) => t.name).join(" · ")}
+                    >
+                      {r.teams.length}
+                    </span>
                   )}
                 </td>
                 <td className="py-1 text-right">
