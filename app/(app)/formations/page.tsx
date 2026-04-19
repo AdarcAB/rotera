@@ -4,9 +4,9 @@ import { requireUserId } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { formations } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { createFormation } from "./actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function FormationsPage() {
   const userId = await requireUserId();
@@ -94,7 +94,7 @@ export default async function FormationsPage() {
               <input type="checkbox" name="isDefault" className="w-4 h-4" />
               <span>Förvald (visas förifyllt när du skapar en match)</span>
             </label>
-            <Button type="submit">Skapa</Button>
+            <SubmitButton>Skapa</SubmitButton>
           </form>
         </Card>
 

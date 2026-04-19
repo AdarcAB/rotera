@@ -22,9 +22,9 @@ export default async function AppLayout({
     .limit(1);
   const teamIds = await userTeamIds(user.id);
 
-  const liveMatch =
+  const liveMatches =
     teamIds.length === 0 && orgIds.length === 0
-      ? null
+      ? []
       : await db
           .select({
             id: matches.id,
@@ -48,9 +48,7 @@ export default async function AppLayout({
               eq(matches.status, "live")
             )
           )
-          .orderBy(desc(matches.createdAt))
-          .limit(1)
-          .then((r) => r[0] ?? null);
+          .orderBy(desc(matches.createdAt));
 
   return (
     <div className="flex-1 flex flex-col">
@@ -62,15 +60,16 @@ export default async function AppLayout({
         Hoppa till innehåll
       </a>
       <div className="sticky top-0 z-20 bg-white">
-        {liveMatch ? (
+        {liveMatches.map((lm) => (
           <Link
-            href={`/matches/${liveMatch.id}/live`}
+            key={lm.id}
+            href={`/matches/${lm.id}/live`}
             className="block bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-sm font-medium text-center"
           >
-            🔴 Live-match pågår — {matchTitle(liveMatch)}
+            🔴 Live — {matchTitle(lm)}
             <span className="ml-2 underline">Gå till live →</span>
           </Link>
-        ) : null}
+        ))}
         <header className="px-4 md:px-6 py-3 border-b border-border bg-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 md:gap-6 min-w-0">
             <Link href="/dashboard" className="flex items-center gap-2 shrink-0">

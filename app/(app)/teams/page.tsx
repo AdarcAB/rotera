@@ -3,10 +3,10 @@ import { desc, inArray } from "drizzle-orm";
 import { requireUserId, userTeamIds } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { teams } from "@/lib/db/schema";
-import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { createTeam } from "./actions";
 import { Card, CardTitle } from "@/components/ui/Card";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function TeamsPage() {
   const userId = await requireUserId();
@@ -34,7 +34,7 @@ export default async function TeamsPage() {
               <Label htmlFor="name">Namn</Label>
               <Input id="name" name="name" required maxLength={80} placeholder="Lag gul" />
             </Field>
-            <Button type="submit">Skapa lag</Button>
+            <SubmitButton>Skapa lag</SubmitButton>
           </form>
         </Card>
 

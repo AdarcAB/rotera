@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { currentOrgId } from "@/lib/auth";
-import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { Card, CardTitle } from "@/components/ui/Card";
+import { SubmitButton } from "@/components/SubmitButton";
 import {
   createOrg,
   getOrgDetail,
@@ -73,9 +73,9 @@ export default async function OrgsPage() {
                   <option value="fotboll">Fotboll</option>
                 </select>
               </Field>
-              <Button type="submit" className="w-full">
+              <SubmitButton className="w-full" pendingLabel="Skapar…">
                 Skapa
-              </Button>
+              </SubmitButton>
               <p className="text-xs text-neutral-600 mt-3">
                 Du blir ägare. Du kan bjuda in andra efteråt.
               </p>

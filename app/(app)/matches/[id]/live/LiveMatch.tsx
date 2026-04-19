@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { Schedule } from "@/lib/schedule/types";
 import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/SubmitButton";
 import { formatTime } from "@/lib/utils";
 import { persistLiveState, finishMatch } from "./actions";
 import { stopLiveMatch } from "../../actions";
@@ -1531,9 +1532,9 @@ function FinishedView({ matchId }: { matchId: number }) {
       </p>
       <form action={finishMatch}>
         <input type="hidden" name="matchId" value={matchId} />
-        <Button size="xl" type="submit" className="w-full">
+        <SubmitButton size="xl" className="w-full" pendingLabel="Avslutar…">
           Avsluta match och se summering
-        </Button>
+        </SubmitButton>
       </form>
     </div>
   );

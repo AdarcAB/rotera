@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/SubmitButton";
 import {
   computeSchedulePrereqs,
   deleteMatch,
@@ -158,9 +159,9 @@ export default async function MatchPage({
           ) : schedule ? (
             <form action={startLive}>
               <input type="hidden" name="matchId" value={match.id} />
-              <Button type="submit" size="lg">
+              <SubmitButton size="lg" pendingLabel="Startar…">
                 ▶ Starta live-läge
-              </Button>
+              </SubmitButton>
             </form>
           ) : null}
         </div>
@@ -220,9 +221,12 @@ export default async function MatchPage({
           {prereqs.ok ? (
             <form action={generateScheduleAction}>
               <input type="hidden" name="matchId" value={match.id} />
-              <Button type="submit" variant={schedule ? "secondary" : "primary"}>
+              <SubmitButton
+                variant={schedule ? "secondary" : "primary"}
+                pendingLabel="Genererar…"
+              >
                 {schedule ? "Regenerera" : "Generera schema"}
-              </Button>
+              </SubmitButton>
             </form>
           ) : (
             <Button type="button" disabled variant="secondary">

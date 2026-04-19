@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { Field, Input, Label } from "@/components/ui/Input";
+import { SubmitButton } from "@/components/SubmitButton";
 
 type TeamOpt = { id: number; name: string };
 type FormationOpt = { id: number; name: string; isDefault: boolean };
@@ -170,7 +170,7 @@ export function MatchCreateForm({
         />
       </Field>
 
-      <Button type="submit">Skapa match</Button>
+      <SubmitButton pendingLabel="Skapar…">Skapa match</SubmitButton>
     </form>
   );
 }
