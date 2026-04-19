@@ -659,24 +659,26 @@ export async function regenerateScheduleWithStart(
 export async function startLive(formData: FormData) {
   const userId = await requireUserId();
   const matchId = Number(formData.get("matchId"));
-  await assertMatchAccessible(matchId, userId);
-  await db
-    .update(matches)
-    .set({
-      status: "live",
-      liveStateJson: {
-        status: "pre_period",
-        currentPeriodIndex: 0,
-        resumedAt: null,
-        elapsedBeforePause: 0,
-        completedSubPoints: [],
-        removedPlayerIds: [],
-        startedAt: new Date().toISOString(),
-      },
-    })
-    .where(eq(matches.id, matchId));
-  // Refresh (app) layout so the sticky live banner picks up the new status.
-  revalidatePath("/", "layout");
+  const match = await assertMatchAccessible(matchId, userId);
+  // Initialize pre-period state but leave matches.status = "scheduled".
+  // The match flips to "live" (and the orange banner appears) only when the
+  // coach actually starts period 1 — see persistLiveState.
+  if (match.liveStateJson === null) {
+    await db
+      .update(matches)
+      .set({
+        liveStateJson: {
+          status: "pre_period",
+          currentPeriodIndex: 0,
+          resumedAt: null,
+          elapsedBeforePause: 0,
+          completedSubPoints: [],
+          removedPlayerIds: [],
+          startedAt: new Date().toISOString(),
+        },
+      })
+      .where(eq(matches.id, matchId));
+  }
   redirect(`/matches/${matchId}/live`);
 }
 
