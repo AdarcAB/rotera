@@ -187,6 +187,29 @@ export async function createMatch(formData: FormData) {
     })
     .returning();
 
+  // Pre-fill the roster with every player on the team. Coach unchecks
+  // the ones not attending. (Ad-hoc trupper start empty — coach picks via
+  // typeahead.)
+  if (teamId !== null) {
+    const rosterPlayers = await db
+      .select({ id: players.id })
+      .from(players)
+      .innerJoin(teamPlayersTable, eq(teamPlayersTable.playerId, players.id))
+      .where(eq(teamPlayersTable.teamId, teamId));
+    if (rosterPlayers.length > 0) {
+      const posIds = await allPositionIds(parsed.formationId);
+      await db.insert(matchPlayers).values(
+        rosterPlayers.map((p) => ({
+          matchId: inserted.id,
+          playerId: p.id,
+          isGuest: false,
+          playablePositionIds: posIds,
+          preferredPositionIds: [],
+        }))
+      );
+    }
+  }
+
   revalidatePath("/matches");
   redirect(`/matches/${inserted.id}`);
 }
