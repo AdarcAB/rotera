@@ -772,22 +772,33 @@ function PrePeriodView({
         {sortedSubs.length === 0 ? (
           <div className="text-sm text-neutral-600">Inga planerade byten.</div>
         ) : (
-          <div className="flex flex-wrap gap-2 text-sm">
+          <ul className="space-y-2">
             {sortedSubs.map((sp, i) => (
-              <span
-                key={i}
-                className="px-2 py-1 rounded-md bg-neutral-100"
-                title={
-                  sp.changes.length > 1
-                    ? `${sp.changes.length} spelarbyten samtidigt`
-                    : undefined
-                }
-              >
-                {sp.minuteInPeriod}&apos;
-                {sp.changes.length > 1 ? ` (${sp.changes.length} spelare)` : ""}
-              </span>
+              <li key={i} className="text-sm">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-xs bg-neutral-100 px-1.5 py-0.5 rounded">
+                    {sp.minuteInPeriod}&apos;
+                  </span>
+                  {sp.changes.length === 0 ? (
+                    <span className="text-neutral-500">(inget byte)</span>
+                  ) : (
+                    <span className="text-neutral-700">
+                      {sp.changes
+                        .map(
+                          (c) =>
+                            `${
+                              positionMap[c.positionId]?.abbreviation ?? "?"
+                            }: ${playerMap[c.outPlayerId] ?? "?"} → ${
+                              playerMap[c.inPlayerId] ?? "?"
+                            }`
+                        )
+                        .join(" · ")}
+                    </span>
+                  )}
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </div>
