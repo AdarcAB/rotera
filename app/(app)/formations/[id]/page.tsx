@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import { formations, positions } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Field, Input, Label } from "@/components/ui/Input";
 import {
   deleteFormation,
@@ -121,14 +122,14 @@ export default async function FormationPage({
               />
               <span>Förvald (visas förifyllt när du skapar en match)</span>
             </label>
-            <Button type="submit">Spara</Button>
+            <SubmitButton pendingLabel="Sparar…">Spara</SubmitButton>
           </form>
 
           <form action={deleteFormation} className="mt-4">
             <input type="hidden" name="id" value={f.id} />
-            <Button variant="danger" size="sm" type="submit">
+            <SubmitButton variant="danger" size="sm" pendingLabel="Raderar…">
               Radera spelform
-            </Button>
+            </SubmitButton>
           </form>
         </Card>
 
@@ -184,9 +185,9 @@ export default async function FormationPage({
               Målvakt byts i princip aldrig under pågående period — däremot ofta
               mellan perioder.
             </p>
-            <Button type="submit" className="mt-3">
+            <SubmitButton className="mt-3" pendingLabel="Sparar…">
               Spara positioner
-            </Button>
+            </SubmitButton>
           </form>
         </Card>
       </div>

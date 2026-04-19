@@ -13,6 +13,7 @@ import {
   teams,
 } from "@/lib/db/schema";
 import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { TeamNameEdit } from "@/components/TeamNameEdit";
 import { PlayersTable } from "@/components/PlayersTable";
@@ -229,9 +230,9 @@ export default async function TeamPage({
         </p>
         <form action={deleteTeam}>
           <input type="hidden" name="id" value={team.id} />
-          <Button variant="danger" size="sm" type="submit">
+          <SubmitButton variant="danger" size="sm" pendingLabel="Raderar…">
             Radera lag permanent
-          </Button>
+          </SubmitButton>
         </form>
       </Card>
     </div>

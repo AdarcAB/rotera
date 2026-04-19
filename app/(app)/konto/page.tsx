@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Field, Input, Label } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/SubmitButton";
 import { deleteAccount } from "./actions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -97,9 +98,9 @@ export default async function KontoPage({
               required
             />
           </Field>
-          <Button variant="danger" type="submit">
+          <SubmitButton variant="danger" pendingLabel="Raderar…">
             Radera mitt konto permanent
-          </Button>
+          </SubmitButton>
         </form>
       </Card>
 

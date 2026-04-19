@@ -299,9 +299,9 @@ export default async function MatchPage({
         </p>
         <form action={deleteMatch}>
           <input type="hidden" name="id" value={match.id} />
-          <Button variant="danger" size="sm" type="submit">
+          <SubmitButton variant="danger" size="sm" pendingLabel="Raderar…">
             Radera match permanent
-          </Button>
+          </SubmitButton>
         </form>
       </Card>
     </div>
