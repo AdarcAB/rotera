@@ -32,7 +32,7 @@ export default async function TeamsPage() {
           <form action={createTeam} className="mt-3">
             <Field>
               <Label htmlFor="name">Namn</Label>
-              <Input id="name" name="name" required maxLength={80} placeholder="P12 Röd" />
+              <Input id="name" name="name" required maxLength={80} placeholder="Kometerna" />
             </Field>
             <Button type="submit">Skapa lag</Button>
           </form>

@@ -97,7 +97,7 @@ export function MatchCreateForm({
           id="opponent"
           name="opponent"
           required
-          placeholder="Ankeborg P12"
+          placeholder="Storköping lag gul"
         />
       </Field>
 
