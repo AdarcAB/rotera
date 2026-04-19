@@ -50,27 +50,6 @@ export default async function Dashboard() {
 
       <InstallAppHint />
 
-      {unvotedCount > 0 ? (
-        <Link
-          href="/forslag"
-          className="block rounded-lg border border-sky-200 bg-sky-50/70 p-4 mb-6 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        >
-          <div className="flex items-center gap-3">
-            <span className="shrink-0 w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-sm font-bold">
-              {unvotedCount}
-            </span>
-            <div>
-              <div className="font-semibold text-sky-900">
-                Vilka features vill du se härnäst?
-              </div>
-              <div className="text-sm text-sky-900">
-                Rösta på förslag eller lämna ett eget →
-              </div>
-            </div>
-          </div>
-        </Link>
-      ) : null}
-
       {teamRows.length === 0 ? (
         <Card className="mb-6">
           <CardTitle>Kom igång</CardTitle>
@@ -157,6 +136,22 @@ export default async function Dashboard() {
           </Link>
         </div>
       </Card>
+
+      {unvotedCount > 0 ? (
+        <Link
+          href="/forslag"
+          className="mt-6 block rounded-lg border border-border bg-neutral-50 p-3 hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+        >
+          <div className="flex items-center gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-neutral-200 text-neutral-700 flex items-center justify-center text-xs font-medium">
+              {unvotedCount}
+            </span>
+            <div className="text-sm text-neutral-700">
+              Vilka features önskar du? <span className="text-neutral-500">Rösta eller lämna eget →</span>
+            </div>
+          </div>
+        </Link>
+      ) : null}
     </div>
   );
 }
