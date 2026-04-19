@@ -13,7 +13,10 @@ import {
 } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import type { Schedule } from "@/lib/schedule/types";
-import { computePlayerMinutesByPosition } from "@/lib/schedule/validate";
+import {
+  computeActualMinutesByPosition,
+  type LiveStateLike,
+} from "@/lib/schedule/validate";
 import {
   fairScore,
   optimalMinutes,
@@ -82,26 +85,31 @@ export default async function SummaryPage({
   const posAbbr = new Map(posList.map((p) => [p.id, p.abbreviation]));
 
   const schedule = match.generatedScheduleJson as Schedule | null;
+  const liveState = match.liveStateJson as LiveStateLike | null;
   const minutesByPosition = schedule
-    ? computePlayerMinutesByPosition(schedule.periods, {
-        formation: {
-          numPeriods: 0,
-          minutesPerPeriod: 0,
-          minSubs: 0,
-          maxSubs: 0,
-          positions: posList.map((p) => ({
-            id: p.id,
-            name: p.name,
-            abbreviation: p.abbreviation,
+    ? computeActualMinutesByPosition(
+        schedule.periods,
+        {
+          formation: {
+            numPeriods: formation.numPeriods,
+            minutesPerPeriod: formation.minutesPerPeriod,
+            minSubs: formation.minSubsPerPeriod,
+            maxSubs: formation.maxSubsPerPeriod,
+            positions: posList.map((p) => ({
+              id: p.id,
+              name: p.name,
+              abbreviation: p.abbreviation,
+            })),
+          },
+          players: mps.map((mp) => ({
+            id: mp.id,
+            name: nameOf(mp),
+            playablePositionIds: mp.playablePositionIds ?? [],
+            preferredPositionIds: mp.preferredPositionIds ?? [],
           })),
         },
-        players: mps.map((mp) => ({
-          id: mp.id,
-          name: nameOf(mp),
-          playablePositionIds: mp.playablePositionIds ?? [],
-          preferredPositionIds: mp.preferredPositionIds ?? [],
-        })),
-      })
+        liveState
+      )
     : {};
 
   const optimal = optimalMinutes({

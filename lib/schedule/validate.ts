@@ -38,6 +38,82 @@ export function computePlayerMinutes(
   return minutes;
 }
 
+export type LiveStateLike = {
+  adHocSubs?: {
+    periodIndex: number;
+    minuteInPeriod: number;
+    positionId: number;
+    outPlayerId: number;
+    inPlayerId: number;
+  }[];
+  completedSubPoints?: {
+    periodIndex: number;
+    subPointIndex: number;
+    appliedPositionIds?: number[];
+  }[];
+};
+
+/**
+ * Like computePlayerMinutesByPosition but folds in actual live-match events:
+ * ad-hoc subs (off-schedule) and scheduled subs that were skipped. Gives the
+ * true per-position minutes for a finished match, matching actualMinutesPlayed.
+ */
+export function computeActualMinutesByPosition(
+  periods: PeriodPlan[],
+  input: ScheduleInput,
+  liveState: LiveStateLike | null
+): Record<number, Record<number, number>> {
+  const result = computePlayerMinutesByPosition(periods, input);
+  if (!liveState) return result;
+
+  const mpp = input.formation.minutesPerPeriod;
+  const addMin = (pid: number, posId: number, delta: number) => {
+    result[pid] = result[pid] ?? {};
+    result[pid][posId] = Math.max(0, (result[pid][posId] ?? 0) + delta);
+  };
+
+  // Ad-hoc subs: out loses remaining on that position, in gains it.
+  for (const sub of liveState.adHocSubs ?? []) {
+    const remaining = Math.max(0, mpp - sub.minuteInPeriod);
+    addMin(sub.outPlayerId, sub.positionId, -remaining);
+    addMin(sub.inPlayerId, sub.positionId, remaining);
+  }
+
+  // Skipped scheduled changes: out stayed on field (gains remaining);
+  // in never came in (loses remaining it was credited for in the schedule).
+  const completed = liveState.completedSubPoints ?? [];
+  for (const period of periods) {
+    const sortedSubs = [...period.subPoints].sort(
+      (a, b) => a.minuteInPeriod - b.minuteInPeriod
+    );
+    for (let i = 0; i < sortedSubs.length; i++) {
+      const sp = sortedSubs[i];
+      const completion = completed.find(
+        (c) => c.periodIndex === period.index && c.subPointIndex === i
+      );
+      if (!completion || completion.appliedPositionIds === undefined) continue;
+      const applied = new Set(completion.appliedPositionIds);
+      for (const c of sp.changes) {
+        if (applied.has(c.positionId)) continue;
+        const remaining = Math.max(0, mpp - sp.minuteInPeriod);
+        addMin(c.outPlayerId, c.positionId, remaining);
+        addMin(c.inPlayerId, c.positionId, -remaining);
+      }
+    }
+  }
+
+  // Strip zero-entries for cleaner UI.
+  for (const pidStr of Object.keys(result)) {
+    const pid = Number(pidStr);
+    const byPos = result[pid];
+    for (const posIdStr of Object.keys(byPos)) {
+      if ((byPos[Number(posIdStr)] ?? 0) <= 0) delete byPos[Number(posIdStr)];
+    }
+  }
+
+  return result;
+}
+
 export function computePlayerMinutesByPosition(
   periods: PeriodPlan[],
   input: ScheduleInput
