@@ -55,6 +55,11 @@ export default async function LoginPage({
               type="email"
               required
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="email"
+              enterKeyHint="send"
               placeholder="du@exempel.se"
               defaultValue={sp.email}
             />
