@@ -345,29 +345,17 @@ function ScheduleView({
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+      <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-3 rounded-md bg-neutral-50 border border-border">
-          <div className="text-xs text-neutral-600">Score</div>
-          <div className="text-lg font-semibold">
-            {schedule.score.toFixed(1)}
-          </div>
-        </div>
-        <div className="p-3 rounded-md bg-neutral-50 border border-border">
-          <div className="text-xs text-neutral-600">Jämnhet</div>
+          <div className="text-xs text-neutral-600">Jämnhet i speltid</div>
           <div className="text-lg font-semibold">
             {(schedule.scoreBreakdown.minutesFairness * 100).toFixed(0)}%
           </div>
         </div>
         <div className="p-3 rounded-md bg-neutral-50 border border-border">
-          <div className="text-xs text-neutral-600">Önskemål</div>
+          <div className="text-xs text-neutral-600">Önskade positioner</div>
           <div className="text-lg font-semibold">
             {(schedule.scoreBreakdown.preferencesMet * 100).toFixed(0)}%
-          </div>
-        </div>
-        <div className="p-3 rounded-md bg-neutral-50 border border-border">
-          <div className="text-xs text-neutral-600">Variation</div>
-          <div className="text-lg font-semibold">
-            {schedule.scoreBreakdown.positionVariety}
           </div>
         </div>
       </div>
