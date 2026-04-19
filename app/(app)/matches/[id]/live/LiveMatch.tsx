@@ -972,7 +972,7 @@ function RunningView({
         )}
         <Button variant="secondary" size="lg" onClick={onJumpToBreak}>
           <SkipEndIcon className="w-5 h-5 mr-2" />
-          Hoppa till paus
+          Hoppa till periodslut
         </Button>
       </div>
     </div>
