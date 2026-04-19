@@ -7,7 +7,7 @@ import {
   userTeamIds,
 } from "@/lib/auth";
 import { db } from "@/lib/db/client";
-import { matches, teams, players } from "@/lib/db/schema";
+import { matches, orgTeams, teams, players } from "@/lib/db/schema";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { InstallAppHint } from "@/components/InstallAppHint";
 import { unvotedFeatureCount } from "../forslag/actions";
@@ -21,7 +21,7 @@ export default async function Dashboard() {
     userOrgIds(userId),
     currentOrgId(),
   ]);
-  const [teamRows, matchRows, playedMatchCountRow, orgPlayerCountRow] =
+  const [teamRows, matchRows, playedMatchCountRow, orgPlayerCountRow, orgRow] =
     await Promise.all([
       teamIds.length === 0
         ? Promise.resolve([])
@@ -59,6 +59,12 @@ export default async function Dashboard() {
         .select({ id: players.id })
         .from(players)
         .where(eq(players.orgTeamId, activeOrgId)),
+      db
+        .select({ name: orgTeams.name })
+        .from(orgTeams)
+        .where(eq(orgTeams.id, activeOrgId))
+        .limit(1)
+        .then((r) => r[0] ?? null),
     ]);
 
   const playedMatchCount = playedMatchCountRow.length;
@@ -89,11 +95,15 @@ export default async function Dashboard() {
       ) : (
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           <Card>
-            <div className="text-sm text-neutral-600">Lag i org</div>
+            <div className="text-sm text-neutral-600">
+              Lag i {orgRow?.name ?? "org"}
+            </div>
             <div className="text-2xl font-bold">{teamRows.length}</div>
           </Card>
           <Card>
-            <div className="text-sm text-neutral-600">Spelare i org</div>
+            <div className="text-sm text-neutral-600">
+              Spelare i {orgRow?.name ?? "org"}
+            </div>
             <div className="text-2xl font-bold">{orgPlayerCount}</div>
           </Card>
           <Card>
